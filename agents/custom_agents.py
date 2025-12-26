@@ -3,13 +3,24 @@ from autogen import AssistantAgent
 class FinalModeratorAgent(AssistantAgent):
     """最终主持人Agent - 能看到所有裁判评分"""
     
-    def __init__(self, name, llm_config, system_message, debate_sm):
+    def __init__(self, name, llm_config, system_message, debate_sm, ui_callback=None):
         super().__init__(name=name, llm_config=llm_config, system_message=system_message)
         self.debate_sm = debate_sm
         self.is_final_announcement = False
+        self.ui_callback = ui_callback
+
+    def generate_reply(self, sender=None, **kwargs):
+        reply = super().generate_reply(sender=sender, **kwargs)
+        if reply and self.ui_callback:
+            self.ui_callback(self.name, reply)
+        return reply
 
 class FilteredAssistantAgent(AssistantAgent):
     """过滤其他裁判消息的助手Agent"""
+    
+    def __init__(self, name, llm_config, system_message, ui_callback=None):
+        super().__init__(name=name, llm_config=llm_config, system_message=system_message)
+        self.ui_callback = ui_callback
     
     def generate_reply(self, sender=None, **kwargs):
         # Pull full message history
@@ -29,7 +40,23 @@ class FilteredAssistantAgent(AssistantAgent):
         self.chat_messages[sender] = filtered_messages
 
         try:
-            return super().generate_reply(sender=sender, **kwargs)
+            reply = super().generate_reply(sender=sender, **kwargs)
+            if reply and self.ui_callback:
+                self.ui_callback(self.name, reply)
+            return reply
         finally:
             # Restore full history to avoid side effects
             self.chat_messages[sender] = original
+
+class DebaterAssistantAgent(AssistantAgent):
+    """辩手Agent - 支持界面回调"""
+    
+    def __init__(self, name, llm_config, system_message, ui_callback=None):
+        super().__init__(name=name, llm_config=llm_config, system_message=system_message)
+        self.ui_callback = ui_callback
+    
+    def generate_reply(self, sender=None, **kwargs):
+        reply = super().generate_reply(sender=sender, **kwargs)
+        if reply and self.ui_callback:
+            self.ui_callback(self.name, reply)
+        return reply

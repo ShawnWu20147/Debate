@@ -20,9 +20,34 @@ base_config = {
 }
 
 # 辩论配置
-DEBATERS_PER_SIDE = 2  # 每方辩手人数
-JUDGES_COUNT = 3  # 裁判人数
-MAX_FREE_DEBATE_TURNS = 4  # 自由辩论最大轮次
+# 默认值，可通过动态参数覆盖
+_DEFAULT_DEBATERS_PER_SIDE = 2  # 每方辩手人数
+_DEFAULT_JUDGES_COUNT = 3  # 裁判人数
+_DEFAULT_MAX_FREE_DEBATE_TURNS = 4  # 自由辩论最大轮次
+
+# 当前使用的配置值
+debaters_per_side = _DEFAULT_DEBATERS_PER_SIDE
+judges_count = _DEFAULT_JUDGES_COUNT
+max_free_debate_turns = _DEFAULT_MAX_FREE_DEBATE_TURNS
+
+def update_config(**kwargs):
+    """更新辩论配置参数"""
+    global debaters_per_side, judges_count, max_free_debate_turns
+    
+    if 'debaters_per_side' in kwargs:
+        debaters_per_side = kwargs['debaters_per_side']
+    if 'judges_count' in kwargs:
+        judges_count = kwargs['judges_count']
+    if 'max_free_debate_turns' in kwargs:
+        max_free_debate_turns = kwargs['max_free_debate_turns']
+
+def get_current_config():
+    """获取当前配置"""
+    return {
+        'debaters_per_side': debaters_per_side,
+        'judges_count': judges_count,
+        'max_free_debate_turns': max_free_debate_turns
+    }
 
 # 为不同角色配置不同模型
 host_model = "x-ai/grok-4-fast"
@@ -98,14 +123,14 @@ def get_debate_model_assignments():
     """获取所有辩手的公司和模型分配"""
     # 正方队伍：选择一个公司，然后为每个辩手分配模型
     pro_company = get_random_company()
-    pro_models = [get_random_model_from_company(pro_company) for _ in range(DEBATERS_PER_SIDE)]
+    pro_models = [get_random_model_from_company(pro_company) for _ in range(debaters_per_side)]
     
     # 反方队伍：选择一个公司，然后为每个辩手分配模型
     con_company = get_random_company()
-    con_models = [get_random_model_from_company(con_company) for _ in range(DEBATERS_PER_SIDE)]
+    con_models = [get_random_model_from_company(con_company) for _ in range(debaters_per_side)]
     
     # 裁判模型分配
-    judge_models_assigned = [get_random_judge_model() for _ in range(JUDGES_COUNT)]
+    judge_models_assigned = [get_random_judge_model() for _ in range(judges_count)]
     
     return {
         "pro": {
