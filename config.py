@@ -119,18 +119,24 @@ def get_random_judge_model():
     return random.choice(judge_models)
 
 
-def get_debate_model_assignments():
+def get_debate_model_assignments(debaters_per_side=None, judges_count=None):
     """获取所有辩手的公司和模型分配"""
+    # 使用传递的参数或当前配置
+    use_debaters_per_side = debaters_per_side if debaters_per_side is not None else _DEFAULT_DEBATERS_PER_SIDE
+    use_judges_count = judges_count if judges_count is not None else _DEFAULT_JUDGES_COUNT
+    
     # 正方队伍：选择一个公司，然后为每个辩手分配模型
     pro_company = get_random_company()
-    pro_models = [get_random_model_from_company(pro_company) for _ in range(debaters_per_side)]
+    pro_models = [get_random_model_from_company(pro_company) for _ in range(use_debaters_per_side)]
     
     # 反方队伍：选择一个公司，然后为每个辩手分配模型
     con_company = get_random_company()
-    con_models = [get_random_model_from_company(con_company) for _ in range(debaters_per_side)]
+    con_models = [get_random_model_from_company(con_company) for _ in range(use_debaters_per_side)]
     
     # 裁判模型分配
-    judge_models_assigned = [get_random_judge_model() for _ in range(judges_count)]
+    judge_models_assigned = [get_random_judge_model() for _ in range(use_judges_count)]
+    
+    print(f"Debug: get_debate_model_assignments - use_debaters_per_side={use_debaters_per_side}, pro_models_length={len(pro_models)}, con_models_length={len(con_models)}, judge_models_length={len(judge_models_assigned)}")
     
     return {
         "pro": {

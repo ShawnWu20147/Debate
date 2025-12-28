@@ -17,16 +17,18 @@ def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, m
     )
     
     # 提前生成模型分配
-    model_assignments = get_debate_model_assignments()
+    model_assignments = get_debate_model_assignments(debaters_per_side, judges_count)
     
     # 模型配置信息已在UI初始化时显示，此处不再重复输出
     
     # 创建状态机
-    debate_sm = DebateStateMachine(max_free_debate_turns)
+    print(f"Debug: 创建状态机时的参数 - max_free_debate_turns={max_free_debate_turns}, debaters_per_side={debaters_per_side}, judges_count={judges_count}")
+    debate_sm = DebateStateMachine(max_free_debate_turns, debaters_per_side, judges_count)
     
-    # 创建agents（传入状态机引用、预分配的模型和UI回调）
+    # 创建agents（传入状态机引用、预分配的模型、UI回调和辩论配置参数）
     moderator, pro_debaters, con_debaters, judges = create_agents(
-        debate_topic, debate_sm, model_assignments, ui_callback, max_free_debate_turns
+        debate_topic, debate_sm, model_assignments, ui_callback, max_free_debate_turns,
+        debaters_per_side=debaters_per_side, judges_count=judges_count
     )
     
     # 所有agents列表

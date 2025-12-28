@@ -6,7 +6,7 @@ from autogen import AssistantAgent
 # ============================================================================
 # 创建Agents
 # ============================================================================
-def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=None, max_free_debate_turns=None):
+def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=None, max_free_debate_turns=None, debaters_per_side=2, judges_count=3):
     """创建所有辩论agents
     
     Args:
@@ -24,13 +24,19 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
                 }
             }
         ui_callback: 界面回调函数，用于通知界面更新
+        max_free_debate_turns: 自由辩论最大轮次
+        debaters_per_side: 每方辩手人数
+        judges_count: 裁判人数
     """
+    # 使用传递的参数作为实际的辩手人数和裁判人数
+    actual_debaters_per_side = debaters_per_side
+    actual_judges_count = judges_count
     
     # 主持人（特殊处理final阶段）
     moderator = FinalModeratorAgent(
         name="主持人",
         llm_config={"config_list": [{**base_config, "model": host_model}]},
-        system_message=get_moderator_message(judges_count, max_free_debate_turns),
+        system_message=get_moderator_message(actual_judges_count, max_free_debate_turns),
         debate_sm=debate_sm,
         ui_callback=ui_callback,
     )
@@ -40,8 +46,9 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
     pro_models = model_assignments["pro"]["models"]
     print(f"Debug: 正方队伍选择的公司: {pro_company}")
     pro_debaters = []
-    for i in range(1, debaters_per_side + 1):
-        pro_model = pro_models[i-1]
+    for i in range(1, actual_debaters_per_side + 1):
+        # 确保有足够的模型，如果不够则循环使用
+        pro_model = pro_models[(i-1) % len(pro_models)]
         print(f"Debug: 正方辩手{i}选择的模型: {pro_model}")
         debater = DebaterAssistantAgent(
             name=f"正方辩手{i}",
@@ -56,8 +63,9 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
     con_models = model_assignments["con"]["models"]
     print(f"Debug: 反方队伍选择的公司: {con_company}")
     con_debaters = []
-    for i in range(1, debaters_per_side + 1):
-        con_model = con_models[i-1]
+    for i in range(1, actual_debaters_per_side + 1):
+        # 确保有足够的模型，如果不够则循环使用
+        con_model = con_models[(i-1) % len(con_models)]
         print(f"Debug: 反方辩手{i}选择的模型: {con_model}")
         debater = DebaterAssistantAgent(
             name=f"反方辩手{i}",
@@ -71,7 +79,7 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
     judges = []
     # 获取预分配的裁判模型
     judge_models = model_assignments.get('judges', [])
-    for i in range(1, judges_count + 1):
+    for i in range(1, actual_judges_count + 1):
         # 使用预分配的模型或默认模型
         current_judge_model = judge_models[i-1] if i <= len(judge_models) else "qwen/qwen3-235b-a22b-2507"
         print(f"Debug: 裁判{i}选择的模型: {current_judge_model}")

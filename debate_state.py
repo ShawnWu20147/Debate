@@ -1,5 +1,5 @@
 import random
-from config import debaters_per_side, judges_count, max_free_debate_turns
+from config import max_free_debate_turns
 
 # ============================================================================
 # 辩论状态机（带独立裁判评分）
@@ -7,11 +7,13 @@ from config import debaters_per_side, judges_count, max_free_debate_turns
 class DebateStateMachine:
     """管理辩论流程的状态机，支持裁判独立评分"""
     
-    def __init__(self, max_free_debate_turns=None):
+    def __init__(self, max_free_debate_turns=None, debaters_per_side=None, judges_count=None):
         self.state = "intro"  # 状态：intro -> opening -> free_debate -> closing -> judging -> final -> end
         self.round_count = 0
         self.free_debate_turns = 0
         self.max_free_debate_turns = max_free_debate_turns  # 允许多次自由辩论（可配置）
+        self.debaters_per_side = debaters_per_side  # 每方辩手人数
+        self.judges_count = judges_count  # 裁判人数
         
         # 存储辩论内容（不包含裁判评分）
         self.debate_messages = []
@@ -34,7 +36,7 @@ class DebateStateMachine:
         elif self.state == "opening":
             # 开场陈述：正1 反1 正2 反2 正3 反3
             opening_order = []
-            for i in range(1, debaters_per_side + 1):
+            for i in range(1, self.debaters_per_side + 1):
                 opening_order.extend([f"正方辩手{i}", f"反方辩手{i}"])
             
             if self.round_count < len(opening_order):
@@ -63,11 +65,11 @@ class DebateStateMachine:
             # 正反方交替
             if self.free_debate_turns % 2 == 0:
                 # 正方回合
-                debater_num = random.randint(1, debaters_per_side)
+                debater_num = random.randint(1, self.debaters_per_side)
                 speaker_name = f"正方辩手{debater_num}"
             else:
                 # 反方回合
-                debater_num = random.randint(1, debaters_per_side)
+                debater_num = random.randint(1, self.debaters_per_side)
                 speaker_name = f"反方辩手{debater_num}"
             
             self.free_debate_turns += 1
@@ -77,9 +79,9 @@ class DebateStateMachine:
             # 主持人宣布后，开始总结
             if last_speaker.name == "主持人":
                 self.round_count = 0
-                return self._get_agent(f"反方辩手{debaters_per_side}", groupchat)
+                return self._get_agent(f"反方辩手{self.debaters_per_side}", groupchat)
 
-            closing_order = [f"正方辩手{debaters_per_side}"]
+            closing_order = [f"正方辩手{self.debaters_per_side}"]
             
             if self.round_count < len(closing_order):
                 speaker_name = closing_order[self.round_count]
@@ -96,7 +98,7 @@ class DebateStateMachine:
             # 主持人宣布后，裁判依次评分（但彼此看不到对方评分）
             # 裁判评分：裁判1 裁判2 裁判3
             # 关键：每个裁判只看辩论内容，看不到其他裁判的评分
-            judge_order = [f"裁判{i}" for i in range(1, judges_count + 1)]
+            judge_order = [f"裁判{i}" for i in range(1, self.judges_count + 1)]
             
             if last_speaker.name == "主持人":
                 self.current_judge_index = 1  # 下一个裁判是裁判2

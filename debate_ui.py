@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, filedialog
 import threading
 import queue
 from config import get_debate_model_assignments, update_config
+import datetime
 
 class DebateUI:
     """辩论界面类"""
@@ -157,6 +158,10 @@ class DebateUI:
         
         self.history_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, width=40)
         self.history_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # 导出按钮（右下角）
+        self.export_button = ttk.Button(main_frame, text="导出本场辩论", command=self.export_debate)
+        self.export_button.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.E, tk.S))
     
     def init_config(self):
         """初始化配置并显示模型分配信息"""
@@ -392,3 +397,76 @@ class DebateUI:
         style.configure("Speaking.TLabelframe", background="#ffcccc")
         
         self.root.mainloop()
+    
+    def export_debate(self):
+        """导出辩论历史为markdown文件"""
+        if not self.debate_history:
+            self.show_message("系统消息", "没有辩论历史可导出！")
+            return
+        
+        # 生成默认文件名
+        default_filename = f"辩论记录_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        
+        # 打开文件保存对话框
+        file_path = filedialog.asksaveasfilename(
+            title="导出辩论记录",
+            defaultextension=".md",
+            filetypes=[("Markdown文件", "*.md"), ("所有文件", "*.*")],
+            initialfile=default_filename
+        )
+        
+        if not file_path:
+            return  # 用户取消保存
+        
+        # 构建markdown内容
+        markdown_content = "# AI辩论系统 - 辩论记录\n\n"
+        
+        # 添加辩论元信息
+        topic = self.topic_var.get()
+        if topic:
+            markdown_content += f"## 辩论辩题\n{topic}\n\n"
+        
+        # 查找配置信息
+        has_config = False
+        for speaker, message in self.debate_history:
+            if speaker == "配置信息":
+                markdown_content += f"## 辩论配置\n\n"
+                # 将配置信息转换为markdown格式
+                for line in message.split('\n'):
+                    if line.startswith('【') and line.endswith('】'):
+                        markdown_content += f"### {line}\n"
+                    elif line.startswith('-'):
+                        markdown_content += f"{line}\n"
+                    elif line.startswith('  • '):
+                        markdown_content += f"{line}\n"
+                    elif line.strip():
+                        markdown_content += f"{line}\n"
+                markdown_content += "\n"
+                has_config = True
+                break
+        
+        # 添加辩论历史
+        markdown_content += "## 辩论历史\n\n"
+        
+        for speaker, message in self.debate_history:
+            if speaker == "配置信息":
+                continue  # 跳过配置信息，已经单独处理
+            
+            # 添加发言者和内容
+            markdown_content += f"### {speaker}\n\n"
+            
+            # 处理多行消息
+            for paragraph in message.split('\n'):
+                if paragraph.strip():
+                    markdown_content += f"> {paragraph}\n"
+            
+            markdown_content += "\n---\n\n"
+        
+        # 保存到文件
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            
+            self.show_message("系统消息", f"辩论记录已成功导出到：{file_path}")
+        except Exception as e:
+            self.show_message("系统消息", f"导出失败：{str(e)}")
