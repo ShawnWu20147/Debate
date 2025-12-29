@@ -33,9 +33,10 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
     actual_judges_count = judges_count
     
     # 主持人（特殊处理final阶段）
+    moderator_model = model_assignments.get('moderator_model', host_model)
     moderator = FinalModeratorAgent(
         name="主持人",
-        llm_config={"config_list": [{**base_config, "model": host_model}]},
+        llm_config={"config_list": [{**base_config, "model": moderator_model}]},
         system_message=get_moderator_message(actual_judges_count, max_free_debate_turns),
         debate_sm=debate_sm,
         ui_callback=ui_callback,
@@ -54,6 +55,7 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
             name=f"正方辩手{i}",
             llm_config={"config_list": [{**base_config, "model": pro_model}], "temperature": 0.5},
             system_message=get_debater_message("pro", i, debate_topic),
+            debate_sm=debate_sm,
             ui_callback=ui_callback,
         )
         pro_debaters.append(debater)
@@ -71,6 +73,7 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
             name=f"反方辩手{i}",
             llm_config={"config_list": [{**base_config, "model": con_model}], "temperature": 0.5},
             system_message=get_debater_message("con", i, debate_topic),
+            debate_sm=debate_sm,
             ui_callback=ui_callback,
         )
         con_debaters.append(debater)
@@ -87,6 +90,7 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
             name=f"裁判{i}",
             llm_config={"config_list": [{**base_config, "model": current_judge_model}]},
             system_message=get_judge_message(),
+            debate_sm=debate_sm,
             ui_callback=ui_callback,
         )
         judges.append(judge)

@@ -80,9 +80,26 @@ class DebateConfigWindow:
                                               command=self.on_judges_count_change)
         self.judges_count_spinbox.grid(row=0, column=5, padx=5, pady=5, sticky=tk.W)
         
+        # 主持人配置区域
+        moderator_frame = ttk.LabelFrame(main_frame, text="主持人配置", padding="5")
+        moderator_frame.grid(row=1, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        
+        # 主持人公司选择
+        ttk.Label(moderator_frame, text="主持人公司：").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.moderator_company_var = tk.StringVar()
+        self.moderator_company_combobox = ttk.Combobox(moderator_frame, textvariable=self.moderator_company_var, width=30)
+        self.moderator_company_combobox.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
+        self.moderator_company_combobox.bind("<<ComboboxSelected>>", self.on_moderator_company_change)
+        
+        # 主持人模型选择
+        ttk.Label(moderator_frame, text="主持人模型：").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
+        self.moderator_model_var = tk.StringVar()
+        self.moderator_model_combobox = ttk.Combobox(moderator_frame, textvariable=self.moderator_model_var, width=30)
+        self.moderator_model_combobox.grid(row=0, column=3, padx=5, pady=5, sticky=(tk.W, tk.E))
+        
         # 正方配置区域
         pro_frame = ttk.LabelFrame(main_frame, text="正方配置", padding="5")
-        pro_frame.grid(row=1, column=0, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        pro_frame.grid(row=2, column=0, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
         pro_frame.columnconfigure(0, weight=1)
         pro_frame.columnconfigure(1, weight=1)
         pro_frame.rowconfigure(0, weight=0)
@@ -103,7 +120,7 @@ class DebateConfigWindow:
         
         # 反方配置区域
         con_frame = ttk.LabelFrame(main_frame, text="反方配置", padding="5")
-        con_frame.grid(row=1, column=1, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        con_frame.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
         con_frame.columnconfigure(0, weight=1)
         con_frame.columnconfigure(1, weight=1)
         con_frame.rowconfigure(0, weight=0)
@@ -124,7 +141,7 @@ class DebateConfigWindow:
         
         # 裁判配置区域
         judges_frame = ttk.LabelFrame(main_frame, text="裁判配置", padding="5")
-        judges_frame.grid(row=2, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        judges_frame.grid(row=3, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # 裁判模型配置
         self.judges_models_frame = ttk.Frame(judges_frame, padding="5")
@@ -150,13 +167,19 @@ class DebateConfigWindow:
         # 设置公司下拉菜单选项
         self.pro_company_combobox['values'] = companies
         self.con_company_combobox['values'] = companies
+        self.moderator_company_combobox['values'] = companies
         
         # 默认选择第一个公司
         if companies:
             self.pro_company_var.set(companies[0])
             self.con_company_var.set(companies[1] if len(companies) > 1 else companies[0])
+            self.moderator_company_var.set(companies[0] if len(companies) > 0 else "")
             self.pro_company = companies[0]
             self.con_company = companies[1] if len(companies) > 1 else companies[0]
+            self.moderator_company = companies[0] if len(companies) > 0 else ""
+            
+            # 更新主持人模型选项
+            self.update_moderator_model_options()
     
     def on_debaters_per_side_change(self):
         """每方辩手人数变化时的处理"""
@@ -177,6 +200,25 @@ class DebateConfigWindow:
         """反方公司变化时的处理"""
         self.con_company = self.con_company_var.get()
         self.update_con_model_options()
+    
+    def on_moderator_company_change(self, event):
+        """主持人公司变化时的处理"""
+        self.moderator_company = self.moderator_company_var.get()
+        self.update_moderator_model_options()
+    
+    def update_moderator_model_options(self):
+        """更新主持人模型选项"""
+        # 获取当前公司的模型列表
+        models = models_by_company.get(self.moderator_company, [])
+        
+        # 设置模型下拉菜单选项
+        self.moderator_model_combobox['values'] = models
+        
+        # 默认选择第一个模型
+        if models:
+            self.moderator_model_var.set(models[0])
+        else:
+            self.moderator_model_var.set("")
     
     def update_pro_model_options(self):
         """更新正方辩手模型选项"""
@@ -259,7 +301,9 @@ class DebateConfigWindow:
             "pro_models": [var.get() for var in self.pro_models],
             "con_company": self.con_company_var.get(),
             "con_models": [var.get() for var in self.con_models],
-            "judge_models": [var.get() for var in self.judge_models]
+            "judge_models": [var.get() for var in self.judge_models],
+            "moderator_company": self.moderator_company_var.get(),
+            "moderator_model": self.moderator_model_var.get()
         }
         self.window.destroy()
     
@@ -323,15 +367,15 @@ class DebateUI:
         
         # 初始化配置按钮
         self.init_config_button = ttk.Button(top_frame, text="初始化配置", command=self.init_config)
-        self.init_config_button.grid(row=1, column=7, padx=5, pady=5)
+        self.init_config_button.grid(row=1, column=1, padx=5, pady=5)
         
         # 开始按钮
         self.start_button = ttk.Button(top_frame, text="开始辩论", command=self.start_debate)
-        self.start_button.grid(row=1, column=8, padx=5, pady=5)
+        self.start_button.grid(row=1, column=2, padx=5, pady=5)
         
         # 重新开始按钮
         self.restart_button = ttk.Button(top_frame, text="重新开始", command=self.restart_debate)
-        self.restart_button.grid(row=1, column=9, padx=5, pady=5)
+        self.restart_button.grid(row=1, column=3, padx=5, pady=5)
         
         # 左侧框架：辩论舞台
         left_frame = ttk.Frame(main_frame, padding="5")
@@ -494,11 +538,12 @@ class DebateUI:
         pro_models = self.config_result["pro_models"]
         con_models = self.config_result["con_models"]
         judge_models = self.config_result["judge_models"]
+        moderator_model = self.config_result["moderator_model"]
         
         # 在后台线程中运行辩论，传递配置参数和模型分配
         threading.Thread(
             target=self.debate_func, 
-            args=(topic, self.ui_callback, debaters_per_side, judges_count, free_debate_turns, pro_models, con_models, judge_models), 
+            args=(topic, self.ui_callback, debaters_per_side, judges_count, free_debate_turns, pro_models, con_models, judge_models, moderator_model), 
             daemon=True
         ).start()
     

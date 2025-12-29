@@ -130,7 +130,16 @@ class DebateStateMachine:
             if agent.name == name:
                 return agent
         return None
-    
+
+    def get_state_name(self):
+        """获取当前状态中文名称"""
+        state_desc = {
+            "opening": f"开场陈述",
+            "free_debate": f"自由辩论",
+            "closing": f"总结陈词",
+        }
+        return state_desc.get(self.state, "未知状态")
+
     def get_state_description(self):
         """获取当前状态描述（用于调试）"""
         state_desc = {

@@ -7,7 +7,7 @@ from debate_ui import DebateUI
 # ============================================================================
 # 辩论执行函数
 # ============================================================================
-def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, max_free_debate_turns=4, pro_models=None, con_models=None, judge_models=None):
+def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, max_free_debate_turns=4, pro_models=None, con_models=None, judge_models=None, moderator_model=None):
     """执行辩论的函数，用于在UI中调用"""
     # 更新配置参数
     update_config(
@@ -22,7 +22,8 @@ def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, m
         model_assignments = {
             'pro': {'company': '自定义选择', 'models': pro_models},
             'con': {'company': '自定义选择', 'models': con_models},
-            'judges': judge_models
+            'judges': judge_models,
+            'moderator_model': moderator_model
         }
     else:
         # 生成默认模型分配
