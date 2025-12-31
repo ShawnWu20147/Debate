@@ -27,20 +27,31 @@ def get_moderator_message(judges_count, max_free_debate_turns):
 - 确保所有裁判完成评分后，再进行最终裁决
 - 严格遵守上述所有要求，不得偏离你的职责范围
 """
-def get_debater_message(side, number, topic):
+def get_debater_message(side, number, topic, trait_name="", trait_prompt=""):
     """AutoGen GroupChat · 主持人驱动的专业辩手（赛制语境版）"""
 
     side_text = "支持" if side == "pro" else "反对"
     side_name = "正方" if side == "pro" else "反方"
+
+    # 构建特质部分
+    trait_section = ""
+    if trait_name and trait_prompt:
+        trait_section = f"""
+====================
+【个人辩论风格：{trait_name}】
+====================
+{trait_prompt}
+"""
 
     return f"""
 你是一名**专业辩手**，正在参加一场**正式的辩论赛**。
 本场比赛设有**主持人、明确的辩论阶段和评判标准**，你需要严格遵守赛制要求发言。
 
 在本场辩论中：
-- 你担任 **{side_name} {number}号辩手**
+- 你是 **[{side_name}辩手{number}]**
 - 你的固定立场是：**{side_text}《{topic}》**
 
+{trait_section}
 ====================
 【最高优先级指令：主持人协议】
 ====================
@@ -86,7 +97,7 @@ def get_debater_message(side, number, topic):
 ====================
 - 使用正式、克制但具有攻击性的辩论语言
 - 可使用辩论常见表达：
-  “关键在于… / 对方的前提并不成立 / 因果关系并未建立”
+  "关键在于… / 对方的前提并不成立 / 因果关系并未建立"
 - 避免论文腔与聊天式表达
 
 ====================

@@ -1,12 +1,13 @@
 from config import base_config, host_model, debaters_per_side, judges_count, max_free_debate_turns
 from agents.custom_agents import FinalModeratorAgent, FilteredAssistantAgent, DebaterAssistantAgent
 from agents.prompts import get_moderator_message, get_debater_message, get_judge_message
+from debater_traits import get_trait_info
 from autogen import AssistantAgent
 
 # ============================================================================
 # 创建Agents
 # ============================================================================
-def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=None, max_free_debate_turns=None, debaters_per_side=2, judges_count=3):
+def create_agents(debate_topic, debate_sm, model_assignments=None, trait_assignments=None, ui_callback=None, max_free_debate_turns=None, debaters_per_side=2, judges_count=3):
     """创建所有辩论agents
     
     Args:
@@ -22,6 +23,11 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
                     "company": "公司名称",
                     "models": [模型1, 模型2, ...]
                 }
+            }
+        trait_assignments: 预定义的辩手特质分配，格式为:
+            {
+                "pro": [特质1, 特质2, ...],
+                "con": [特质1, 特质2, ...]
             }
         ui_callback: 界面回调函数，用于通知界面更新
         max_free_debate_turns: 自由辩论最大轮次
@@ -47,14 +53,26 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
     pro_models = model_assignments["pro"]["models"]
     print(f"Debug: 正方队伍选择的公司: {pro_company}")
     pro_debaters = []
+    
+    # 获取正方特质
+    pro_traits = trait_assignments.get("pro", []) if trait_assignments else []
+    
     for i in range(1, actual_debaters_per_side + 1):
         # 确保有足够的模型，如果不够则循环使用
         pro_model = pro_models[(i-1) % len(pro_models)]
         print(f"Debug: 正方辩手{i}选择的模型: {pro_model}")
+        
+        # 获取特质信息
+        trait_name = pro_traits[(i-1) % len(pro_traits)] if pro_traits else ""
+        trait_info_data = get_trait_info(trait_name) if trait_name else {}
+        trait_prompt = trait_info_data.get("prompt_addition", "")
+        
+        print(f"Debug: 正方辩手{i}的特质: {trait_name}")
+        
         debater = DebaterAssistantAgent(
             name=f"正方辩手{i}",
             llm_config={"config_list": [{**base_config, "model": pro_model}], "temperature": 0.5},
-            system_message=get_debater_message("pro", i, debate_topic),
+            system_message=get_debater_message("pro", i, debate_topic, trait_name, trait_prompt),
             debate_sm=debate_sm,
             ui_callback=ui_callback,
         )
@@ -65,14 +83,26 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, ui_callback=N
     con_models = model_assignments["con"]["models"]
     print(f"Debug: 反方队伍选择的公司: {con_company}")
     con_debaters = []
+    
+    # 获取反方特质
+    con_traits = trait_assignments.get("con", []) if trait_assignments else []
+    
     for i in range(1, actual_debaters_per_side + 1):
         # 确保有足够的模型，如果不够则循环使用
         con_model = con_models[(i-1) % len(con_models)]
         print(f"Debug: 反方辩手{i}选择的模型: {con_model}")
+        
+        # 获取特质信息
+        trait_name = con_traits[(i-1) % len(con_traits)] if con_traits else ""
+        trait_info_data = get_trait_info(trait_name) if trait_name else {}
+        trait_prompt = trait_info_data.get("prompt_addition", "")
+        
+        print(f"Debug: 反方辩手{i}的特质: {trait_name}")
+        
         debater = DebaterAssistantAgent(
             name=f"反方辩手{i}",
             llm_config={"config_list": [{**base_config, "model": con_model}], "temperature": 0.5},
-            system_message=get_debater_message("con", i, debate_topic),
+            system_message=get_debater_message("con", i, debate_topic, trait_name, trait_prompt),
             debate_sm=debate_sm,
             ui_callback=ui_callback,
         )

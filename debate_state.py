@@ -133,12 +133,16 @@ class DebateStateMachine:
 
     def get_state_name(self):
         """获取当前状态中文名称"""
-        state_desc = {
-            "opening": f"开场陈述",
-            "free_debate": f"自由辩论",
-            "closing": f"总结陈词",
-        }
-        return state_desc.get(self.state, "未知状态")
+        if self.state == "free_debate":
+            # 自由辩论显示轮数
+            turn_number = self.free_debate_turns if self.free_debate_turns > 0 else 1
+            return f"自由辩论-第{turn_number}轮"
+        else:
+            state_desc = {
+                "opening": "开场陈述",
+                "closing": "总结陈词",
+            }
+            return state_desc.get(self.state, "未知状态")
 
     def get_state_description(self):
         """获取当前状态描述（用于调试）"""

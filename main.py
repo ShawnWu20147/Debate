@@ -7,7 +7,7 @@ from debate_ui import DebateUI
 # ============================================================================
 # 辩论执行函数
 # ============================================================================
-def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, max_free_debate_turns=4, pro_models=None, con_models=None, judge_models=None, moderator_model=None):
+def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, max_free_debate_turns=4, pro_models=None, con_models=None, judge_models=None, moderator_model=None, pro_traits=None, con_traits=None):
     """执行辩论的函数，用于在UI中调用"""
     # 更新配置参数
     update_config(
@@ -29,6 +29,15 @@ def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, m
         # 生成默认模型分配
         model_assignments = get_debate_model_assignments(debaters_per_side, judges_count)
     
+    # 生成特质分配
+    if pro_traits and con_traits:
+        trait_assignments = {
+            'pro': pro_traits,
+            'con': con_traits
+        }
+    else:
+        trait_assignments = None
+    
     # 模型配置信息已在UI初始化时显示，此处不再重复输出
     
     # 创建状态机
@@ -37,7 +46,7 @@ def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, m
     
     # 创建agents（传入状态机引用、预分配的模型、UI回调和辩论配置参数）
     moderator, pro_debaters, con_debaters, judges = create_agents(
-        debate_topic, debate_sm, model_assignments, ui_callback, max_free_debate_turns,
+        debate_topic, debate_sm, model_assignments, trait_assignments, ui_callback, max_free_debate_turns,
         debaters_per_side=debaters_per_side, judges_count=judges_count
     )
     
