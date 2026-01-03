@@ -3,6 +3,7 @@ from debate_state import DebateStateMachine
 from agents.factory import create_agents
 from config import debaters_per_side, judges_count, base_config, host_model, get_debate_model_assignments, update_config
 from debate_ui import DebateUI
+from error_handler import handle_debate_error, log_debate_error
 
 # ============================================================================
 # 辩论执行函数
@@ -92,7 +93,8 @@ def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, m
 请主持人开始介绍。""",
         )
     except Exception as e:
-        ui_callback("主持人", f"辩论过程中出现错误：{e}")
+        log_debate_error("辩论系统", e, "run_debate - initiate_chat")
+        handle_debate_error(e, ui_callback)
 
 # ============================================================================
 # 主程序
