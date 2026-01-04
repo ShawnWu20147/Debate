@@ -92,9 +92,13 @@ def run_debate(debate_topic, ui_callback, debaters_per_side=2, judges_count=3, m
 
 请主持人开始介绍。""",
         )
+        # 辩论正常结束，发送结束信号
+        ui_callback("__DEBATE_END__", "辩论已结束")
     except Exception as e:
         log_debate_error("辩论系统", e, "run_debate - initiate_chat")
         handle_debate_error(e, ui_callback)
+        # 发生错误时也发送结束信号
+        ui_callback("__DEBATE_END__", "辩论因错误而结束")
 
 # ============================================================================
 # 主程序

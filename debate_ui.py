@@ -686,12 +686,12 @@ class DebateUI:
         self.init_config_button = ttk.Button(top_frame, text="初始化配置", command=self.init_config)
         self.init_config_button.grid(row=1, column=1, padx=5, pady=5)
         
-        # 开始按钮
-        self.start_button = ttk.Button(top_frame, text="开始辩论", command=self.start_debate)
+        # 开始按钮（初始禁用）
+        self.start_button = ttk.Button(top_frame, text="开始辩论", command=self.start_debate, state=tk.DISABLED)
         self.start_button.grid(row=1, column=2, padx=5, pady=5)
         
-        # 重新开始按钮
-        self.restart_button = ttk.Button(top_frame, text="重新开始", command=self.restart_debate)
+        # 重新开始按钮（初始禁用）
+        self.restart_button = ttk.Button(top_frame, text="重新开始", command=self.restart_debate, state=tk.DISABLED)
         self.restart_button.grid(row=1, column=3, padx=5, pady=5)
         
         # 左侧框架：辩论舞台
@@ -768,6 +768,21 @@ class DebateUI:
         self.export_button = ttk.Button(main_frame, text="导出本场辩论", command=self.export_debate)
         self.export_button.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.E, tk.S))
     
+    def _format_trait_display(self, trait):
+        """格式化特质显示"""
+        if isinstance(trait, dict):
+            name = trait.get("name", "未知")
+            description = trait.get("description")
+            if name == "自定义" and description:
+                # 自定义特质，显示描述的前20个字符
+                desc_preview = description[:20] + "..." if len(description) > 20 else description
+                return f"自定义: {desc_preview}"
+            else:
+                return name
+        else:
+            # 旧格式，直接返回字符串
+            return str(trait) if trait else "无"
+    
     def init_config(self):
         """显示辩论配置窗口"""
         # 创建配置窗口
@@ -781,7 +796,12 @@ class DebateUI:
             # 保存配置结果
             self.config_result = config_window.result
             
-
+            # 清空所有文本框和历史记录
+            self.clear_all_texts()
+            self.debate_history.clear()
+            
+            # 启用开始辩论按钮
+            self.start_button.config(state=tk.NORMAL)
             
             # 构建配置信息
             config_info = "\n" + "="*50 + "\n"
@@ -799,14 +819,16 @@ class DebateUI:
             config_info += f"所属公司：{self.config_result['pro_company']}\n"
             config_info += "辩手分配：\n"
             for i, (model, trait) in enumerate(zip(self.config_result['pro_models'], self.config_result.get('pro_traits', [])), 1):
-                config_info += f"  • 辩手{i}：{model} (特质：{trait})\n"
+                trait_display = self._format_trait_display(trait)
+                config_info += f"  • 辩手{i}：{model} (特质：{trait_display})\n"
             
             config_info += "\n【反方队伍配置】\n"
             config_info += "-"*20 + "\n"
             config_info += f"所属公司：{self.config_result['con_company']}\n"
             config_info += "辩手分配：\n"
             for i, (model, trait) in enumerate(zip(self.config_result['con_models'], self.config_result.get('con_traits', [])), 1):
-                config_info += f"  • 辩手{i}：{model} (特质：{trait})\n"
+                trait_display = self._format_trait_display(trait)
+                config_info += f"  • 辩手{i}：{model} (特质：{trait_display})\n"
             
             config_info += "\n【裁判配置】\n"
             config_info += "-"*20 + "\n"
@@ -816,9 +838,7 @@ class DebateUI:
             
             config_info += "\n" + "="*50
             
-            # 清空历史记录，避免重复
-            self.debate_history.clear()
-            # 直接添加到历史记录，不通过show_message
+            # 添加到历史记录并显示
             self.debate_history.append(("配置信息", config_info))
             self.update_history_text()
     
@@ -834,8 +854,10 @@ class DebateUI:
             self.show_message("主持人", "请先点击'初始化配置'按钮进行配置！")
             return
         
-        # 禁用开始按钮
+        # 禁用所有按钮
+        self.init_config_button.config(state=tk.DISABLED)
         self.start_button.config(state=tk.DISABLED)
+        self.restart_button.config(state=tk.DISABLED)
         
         # 清空所有聊天框，但保留辩论历史记录中的配置信息
         self.clear_all_texts()
@@ -870,10 +892,19 @@ class DebateUI:
     
     def restart_debate(self):
         """重新开始辩论"""
-        self.start_button.config(state=tk.NORMAL)
+        # 恢复到初始状态
+        self.init_config_button.config(state=tk.NORMAL)
+        self.start_button.config(state=tk.DISABLED)
+        self.restart_button.config(state=tk.DISABLED)
+        
+        # 清空所有内容
         self.clear_all_texts()
         self.debate_history.clear()
         self.current_speaker = None
+        
+        # 清除配置
+        if hasattr(self, 'config_result'):
+            delattr(self, 'config_result')
         
     def clear_all_texts(self):
         """清空所有文本框"""
@@ -904,12 +935,28 @@ class DebateUI:
         try:
             while True:
                 speaker_name, message = self.message_queue.get_nowait()
-                self.show_message(speaker_name, message)
+                # 检查是否是辩论结束信号
+                if speaker_name == "__DEBATE_END__":
+                    self.on_debate_end()
+                else:
+                    self.show_message(speaker_name, message)
         except queue.Empty:
             pass
         
         # 继续监听消息
         self.root.after(100, self.process_messages)
+    
+    def on_debate_end(self):
+        """辩论结束时的处理"""
+        # 启用重新开始按钮
+        self.restart_button.config(state=tk.NORMAL)
+        # 添加结束提示
+        end_info = "\n" + "="*50 + "\n"
+        end_info += "        辩论已结束        \n"
+        end_info += "="*50 + "\n"
+        end_info += "点击「重新开始」按钮可以开始新的辩论\n"
+        self.debate_history.append(("系统消息", end_info))
+        self.update_history_text()
     
     def show_message(self, speaker_name, message):
         """在界面上显示消息"""
