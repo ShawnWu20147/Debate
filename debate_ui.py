@@ -632,14 +632,27 @@ class DebateConfigWindow:
 class DebateUI:
     """辩论界面类"""
     
+    # 颜色定义
+    COLORS = {
+        'pro': {'normal': '#3498db', 'active': '#00ff88', 'glow': '#00ff88'},
+        'con': {'normal': '#e74c3c', 'active': '#00ff88', 'glow': '#00ff88'},
+        'moderator': {'normal': '#9b59b6', 'active': '#00ff88', 'glow': '#00ff88'},
+        'judge': {'normal': '#f39c12', 'active': '#00ff88', 'glow': '#00ff88'},
+        'bg': '#1a1a2e',
+        'panel_bg': '#16213e',
+        'text_bg': '#f8f9fa',
+        'stage_bg': '#0f3460',
+    }
+    
     def __init__(self, debate_func):
         self.debate_func = debate_func
         self.root = tk.Tk()
         self.root.title("AI辩论系统")
-        self.root.geometry("1200x800")
+        self.root.geometry("1500x950")
         self.root.resizable(True, True)
+        self.root.configure(bg=self.COLORS['bg'])
         
-        # 消息队列，用于在后台线程和UI线程之间传递消息
+        # 消息队列
         self.message_queue = queue.Queue()
         
         # 当前发言者
@@ -648,125 +661,333 @@ class DebateUI:
         # 辩论历史记录
         self.debate_history = []
         
+        # 辩手数量（初始化后会更新）
+        self.debaters_per_side = 0
+        self.judges_count = 0
+        
+        # 是否已初始化配置
+        self.is_configured = False
+        
+        # 辩手圆圈引用
+        self.pro_circles = []
+        self.con_circles = []
+        self.judge_circles = []
+        self.moderator_circle = None
+        
         # 创建界面布局
         self.create_widgets()
         
-        # 启动消息处理线程
+        # 启动消息处理
         self.root.after(100, self.process_messages)
         
     def create_widgets(self):
         """创建界面组件"""
         # 主框架
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame = tk.Frame(self.root, bg=self.COLORS['bg'], padx=20, pady=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 配置行和列的权重
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=0)
-        main_frame.rowconfigure(0, weight=0)
-        main_frame.rowconfigure(1, weight=1)
+        # ========== 顶部：辩题和控制按钮 ==========
+        top_frame = tk.Frame(main_frame, bg=self.COLORS['bg'])
+        top_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # 顶部框架：辩题输入和控制按钮
-        top_frame = ttk.Frame(main_frame, padding="5")
-        top_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
-        
-        # 辩题标签和输入框（第一行）
-        ttk.Label(top_frame, text="辩论辩题：").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        # 辩题
+        topic_label = tk.Label(top_frame, text="辩题：", font=("Microsoft YaHei", 14, "bold"),
+                              bg=self.COLORS['bg'], fg='white')
+        topic_label.pack(side=tk.LEFT, padx=(0, 10))
         
         self.topic_var = tk.StringVar()
-        self.topic_entry = ttk.Entry(top_frame, textvariable=self.topic_var, width=100)
-        self.topic_entry.grid(row=0, column=1, columnspan=11, padx=5, pady=5, sticky=(tk.W, tk.E))
+        self.topic_entry = tk.Entry(top_frame, textvariable=self.topic_var, font=("Microsoft YaHei", 12),
+                                   bg='white', relief='flat', width=70)
+        self.topic_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=10, padx=(0, 30))
         self.topic_entry.insert(0, "人工智能将更多地造福人类而非伤害人类")
         
-
+        # 按钮
+        btn_style = {'font': ("Microsoft YaHei", 11, "bold"), 'width': 12, 'relief': 'flat', 'cursor': 'hand2', 'bd': 0}
         
-        # 初始化配置按钮
-        self.init_config_button = ttk.Button(top_frame, text="初始化配置", command=self.init_config)
-        self.init_config_button.grid(row=1, column=1, padx=5, pady=5)
+        self.init_config_button = tk.Button(top_frame, text="初始化配置", bg='#3498db', fg='white',
+                                           activebackground='#2980b9', command=self.init_config, **btn_style)
+        self.init_config_button.pack(side=tk.LEFT, padx=8, ipady=8)
         
-        # 开始按钮（初始禁用）
-        self.start_button = ttk.Button(top_frame, text="开始辩论", command=self.start_debate, state=tk.DISABLED)
-        self.start_button.grid(row=1, column=2, padx=5, pady=5)
+        self.start_button = tk.Button(top_frame, text="开始辩论", bg='#27ae60', fg='white',
+                                     activebackground='#219a52', command=self.start_debate,
+                                     state=tk.DISABLED, **btn_style)
+        self.start_button.pack(side=tk.LEFT, padx=8, ipady=8)
         
-        # 重新开始按钮（初始禁用）
-        self.restart_button = ttk.Button(top_frame, text="重新开始", command=self.restart_debate, state=tk.DISABLED)
-        self.restart_button.grid(row=1, column=3, padx=5, pady=5)
+        self.restart_button = tk.Button(top_frame, text="重新开始", bg='#e74c3c', fg='white',
+                                       activebackground='#c0392b', command=self.restart_debate,
+                                       state=tk.DISABLED, **btn_style)
+        self.restart_button.pack(side=tk.LEFT, padx=8, ipady=8)
         
-        # 左侧框架：辩论舞台
-        left_frame = ttk.Frame(main_frame, padding="5")
-        left_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        left_frame.columnconfigure(0, weight=1)
-        left_frame.columnconfigure(1, weight=1)
-        left_frame.rowconfigure(0, weight=1)
-        left_frame.rowconfigure(1, weight=1)
-        left_frame.rowconfigure(2, weight=1)
+        # ========== 中间区域 ==========
+        middle_frame = tk.Frame(main_frame, bg=self.COLORS['bg'])
+        middle_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 主持人区域
-        self.moderator_frame = ttk.LabelFrame(left_frame, text="主持人", padding="10")
-        self.moderator_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        # 左侧：辩论舞台
+        left_frame = tk.Frame(middle_frame, bg=self.COLORS['bg'])
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
         
-        # 主持人姓名显示框
-        self.moderator_name_label = ttk.Label(self.moderator_frame, text="", font=("Arial", 12, "bold"), 
-                                             background="#4CAF50", foreground="white", 
-                                             relief="ridge", borderwidth=2, padding=5)
-        self.moderator_name_label.pack(pady=(0, 5))
+        # 主持人发言区（顶部）
+        mod_frame = tk.LabelFrame(left_frame, text="📢 主持人", font=("Microsoft YaHei", 11, "bold"),
+                                 bg=self.COLORS['panel_bg'], fg='#9b59b6', labelanchor='nw')
+        mod_frame.pack(fill=tk.X, pady=(0, 10))
         
-        self.moderator_text = scrolledtext.ScrolledText(self.moderator_frame, wrap=tk.WORD, height=8, state=tk.DISABLED)
-        self.moderator_text.pack(fill=tk.BOTH, expand=True)
+        self.moderator_text = scrolledtext.ScrolledText(mod_frame, wrap=tk.WORD, height=4,
+                                                        font=("Microsoft YaHei", 10),
+                                                        bg=self.COLORS['text_bg'], state=tk.DISABLED,
+                                                        relief='flat')
+        self.moderator_text.pack(fill=tk.X, padx=8, pady=8)
         
-        # 正方区域
-        self.pro_frame = ttk.LabelFrame(left_frame, text="正方", padding="10")
-        self.pro_frame.grid(row=1, column=0, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # 舞台Canvas - 用于绘制辩手圆圈
+        stage_container = tk.Frame(left_frame, bg=self.COLORS['stage_bg'], relief='ridge', bd=2)
+        stage_container.pack(fill=tk.X, pady=10)
         
-        # 正方当前发言者姓名显示框
-        self.pro_name_label = ttk.Label(self.pro_frame, text="", font=("Arial", 12, "bold"), 
-                                      background="#2196F3", foreground="white", 
-                                      relief="ridge", borderwidth=2, padding=5)
-        self.pro_name_label.pack(pady=(0, 5))
+        self.stage_canvas = tk.Canvas(stage_container, bg=self.COLORS['stage_bg'], 
+                                      highlightthickness=0, height=180)
+        self.stage_canvas.pack(fill=tk.X, padx=5, pady=5)
         
-        self.pro_text = scrolledtext.ScrolledText(self.pro_frame, wrap=tk.WORD, height=20, state=tk.DISABLED)
-        self.pro_text.pack(fill=tk.BOTH, expand=True)
+        # 绑定窗口大小变化事件
+        self.stage_canvas.bind('<Configure>', self.on_stage_resize)
         
-        # 反方区域
-        self.con_frame = ttk.LabelFrame(left_frame, text="反方", padding="10")
-        self.con_frame.grid(row=1, column=1, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # 初始显示提示
+        self.show_stage_placeholder()
         
-        # 反方当前发言者姓名显示框
-        self.con_name_label = ttk.Label(self.con_frame, text="", font=("Arial", 12, "bold"), 
-                                      background="#F44336", foreground="white", 
-                                      relief="ridge", borderwidth=2, padding=5)
-        self.con_name_label.pack(pady=(0, 5))
+        # 正反方发言区
+        debate_frame = tk.Frame(left_frame, bg=self.COLORS['bg'])
+        debate_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
         
-        self.con_text = scrolledtext.ScrolledText(self.con_frame, wrap=tk.WORD, height=20, state=tk.DISABLED)
-        self.con_text.pack(fill=tk.BOTH, expand=True)
+        # 正方发言区
+        pro_frame = tk.LabelFrame(debate_frame, text="🔵 正方发言", font=("Microsoft YaHei", 11, "bold"),
+                                 bg=self.COLORS['panel_bg'], fg='#3498db', labelanchor='nw')
+        pro_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 8))
         
-        # 评委区域
-        self.judges_frame = ttk.LabelFrame(left_frame, text="评委", padding="10")
-        self.judges_frame.grid(row=2, column=0, columnspan=2, pady=5, sticky=(tk.W, tk.E))
+        self.pro_speaker_label = tk.Label(pro_frame, text="等待发言...", 
+                                         font=("Microsoft YaHei", 10, "bold"),
+                                         bg='#3498db', fg='white', pady=6)
+        self.pro_speaker_label.pack(fill=tk.X, padx=5, pady=(5, 0))
         
-        # 评委当前发言者姓名显示框
-        self.judges_name_label = ttk.Label(self.judges_frame, text="", font=("Arial", 12, "bold"), 
-                                          background="#FF9800", foreground="white", 
-                                          relief="ridge", borderwidth=2, padding=5)
-        self.judges_name_label.pack(pady=(0, 5))
+        self.pro_text = scrolledtext.ScrolledText(pro_frame, wrap=tk.WORD, height=10,
+                                                  font=("Microsoft YaHei", 10),
+                                                  bg=self.COLORS['text_bg'], state=tk.DISABLED,
+                                                  relief='flat')
+        self.pro_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
-        self.judges_text = scrolledtext.ScrolledText(self.judges_frame, wrap=tk.WORD, height=8, state=tk.DISABLED)
-        self.judges_text.pack(fill=tk.BOTH, expand=True)
+        # 反方发言区
+        con_frame = tk.LabelFrame(debate_frame, text="🔴 反方发言", font=("Microsoft YaHei", 11, "bold"),
+                                 bg=self.COLORS['panel_bg'], fg='#e74c3c', labelanchor='nw')
+        con_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0))
         
-        # 右侧框架：辩论历史
-        right_frame = ttk.LabelFrame(main_frame, text="辩论历史", padding="10")
-        right_frame.grid(row=1, column=1, padx=5, sticky=(tk.W, tk.E, tk.N, tk.S))
-        right_frame.columnconfigure(0, weight=1)
-        right_frame.rowconfigure(0, weight=1)
+        self.con_speaker_label = tk.Label(con_frame, text="等待发言...", 
+                                         font=("Microsoft YaHei", 10, "bold"),
+                                         bg='#e74c3c', fg='white', pady=6)
+        self.con_speaker_label.pack(fill=tk.X, padx=5, pady=(5, 0))
         
-        self.history_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, width=40)
-        self.history_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.con_text = scrolledtext.ScrolledText(con_frame, wrap=tk.WORD, height=10,
+                                                  font=("Microsoft YaHei", 10),
+                                                  bg=self.COLORS['text_bg'], state=tk.DISABLED,
+                                                  relief='flat')
+        self.con_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
-        # 导出按钮（右下角）
-        self.export_button = ttk.Button(main_frame, text="导出本场辩论", command=self.export_debate)
-        self.export_button.grid(row=2, column=1, padx=5, pady=5, sticky=(tk.E, tk.S))
+        # 裁判发言区（底部）
+        judge_frame = tk.LabelFrame(left_frame, text="⚖️ 裁判评判", font=("Microsoft YaHei", 11, "bold"),
+                                   bg=self.COLORS['panel_bg'], fg='#f39c12', labelanchor='nw')
+        judge_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        self.judges_text = scrolledtext.ScrolledText(judge_frame, wrap=tk.WORD, height=4,
+                                                     font=("Microsoft YaHei", 10),
+                                                     bg=self.COLORS['text_bg'], state=tk.DISABLED,
+                                                     relief='flat')
+        self.judges_text.pack(fill=tk.X, padx=8, pady=8)
+        
+        # 右侧：辩论历史
+        right_frame = tk.LabelFrame(middle_frame, text="📜 辩论历史", font=("Microsoft YaHei", 12, "bold"),
+                                   bg=self.COLORS['panel_bg'], fg='white', labelanchor='nw', width=420)
+        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH)
+        right_frame.pack_propagate(False)
+        
+        self.history_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD,
+                                                      font=("Microsoft YaHei", 9),
+                                                      bg=self.COLORS['text_bg'], relief='flat')
+        self.history_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=(8, 5))
+        
+        # 导出按钮
+        self.export_button = tk.Button(right_frame, text="📥 导出本场辩论", 
+                                       font=("Microsoft YaHei", 10, "bold"), bg='#6c5ce7', fg='white',
+                                       activebackground='#5b4cdb', relief='flat',
+                                       command=self.export_debate, cursor='hand2')
+        self.export_button.pack(pady=10, ipadx=15, ipady=6)
+    
+    def show_stage_placeholder(self):
+        """显示舞台占位提示"""
+        self.stage_canvas.delete("all")
+        width = self.stage_canvas.winfo_width()
+        height = self.stage_canvas.winfo_height()
+        if width < 10:
+            width = 800
+        if height < 10:
+            height = 180
+        
+        # 显示提示文字
+        self.stage_canvas.create_text(width // 2, height // 2, 
+                                      text="👆 请先点击「初始化配置」按钮配置辩论参数 👆",
+                                      font=("Microsoft YaHei", 14), fill='#7f8c8d')
+    
+    def draw_stage(self):
+        """绘制辩论舞台（辩手圆圈）"""
+        if not self.is_configured:
+            self.show_stage_placeholder()
+            return
+            
+        self.stage_canvas.delete("all")
+        
+        width = self.stage_canvas.winfo_width()
+        height = self.stage_canvas.winfo_height()
+        
+        if width < 10:
+            return
+        
+        # 圆圈半径 - 更大
+        radius = min(35, height // 4)
+        
+        # 绘制中心分隔线
+        self.stage_canvas.create_line(width // 2, 10, width // 2, height - 10, 
+                                      fill='#4a5568', width=2, dash=(5, 3))
+        
+        # 绘制标签
+        self.stage_canvas.create_text(width // 4, 25, text="🔵 正方", 
+                                      font=("Microsoft YaHei", 14, "bold"), fill='#3498db')
+        self.stage_canvas.create_text(width // 2, 25, text="⚔️ VS ⚔️", 
+                                      font=("Microsoft YaHei", 16, "bold"), fill='#ffd700')
+        self.stage_canvas.create_text(3 * width // 4, 25, text="反方 🔴", 
+                                      font=("Microsoft YaHei", 14, "bold"), fill='#e74c3c')
+        
+        # 主持人圆圈（中间上方位置）
+        mod_x, mod_y = width // 2, 70
+        self.moderator_circle = self.draw_circle(mod_x, mod_y, radius - 8, 
+                                                  self.COLORS['moderator']['normal'], "主持")
+        
+        # 绘制正方辩手圆圈
+        self.pro_circles = []
+        y_pos = 130
+        if self.debaters_per_side > 0:
+            pro_spacing = (width // 2 - 80) // (self.debaters_per_side + 1)
+            for i in range(self.debaters_per_side):
+                x = 60 + pro_spacing * (i + 1)
+                circle = self.draw_circle(x, y_pos, radius, self.COLORS['pro']['normal'], f"正{i+1}")
+                self.pro_circles.append(circle)
+        
+        # 绘制反方辩手圆圈
+        self.con_circles = []
+        if self.debaters_per_side > 0:
+            con_spacing = (width // 2 - 80) // (self.debaters_per_side + 1)
+            for i in range(self.debaters_per_side):
+                x = width // 2 + 40 + con_spacing * (i + 1)
+                circle = self.draw_circle(x, y_pos, radius, self.COLORS['con']['normal'], f"反{i+1}")
+                self.con_circles.append(circle)
+        
+        # 绘制裁判圆圈（底部居中）
+        self.judge_circles = []
+        if self.judges_count > 0:
+            judge_y = height - 30
+            total_judge_width = (self.judges_count - 1) * 80
+            judge_start_x = (width - total_judge_width) // 2
+            for i in range(self.judges_count):
+                x = judge_start_x + i * 80
+                circle = self.draw_circle(x, judge_y, radius - 8, self.COLORS['judge']['normal'], f"裁{i+1}")
+                self.judge_circles.append(circle)
+    
+    def draw_circle(self, x, y, radius, color, label):
+        """绘制带标签的圆圈"""
+        # 绘制外圈（用于发光效果）
+        glow = self.stage_canvas.create_oval(
+            x - radius - 5, y - radius - 5,
+            x + radius + 5, y + radius + 5,
+            fill='', outline='', width=0, tags=f"glow_{label}"
+        )
+        # 绘制主圆圈
+        circle = self.stage_canvas.create_oval(
+            x - radius, y - radius,
+            x + radius, y + radius,
+            fill=color, outline='white', width=3, tags=f"circle_{label}"
+        )
+        # 绘制标签
+        text = self.stage_canvas.create_text(
+            x, y, text=label, font=("Microsoft YaHei", 10, "bold"), fill='white', tags=f"text_{label}"
+        )
+        return {'glow': glow, 'circle': circle, 'text': text, 'x': x, 'y': y, 'radius': radius}
+    
+    def on_stage_resize(self, event):
+        """舞台大小变化时重绘"""
+        self.draw_stage()
+    
+    def highlight_speaker(self, speaker_name):
+        """高亮当前发言者"""
+        # 先重置所有圆圈颜色
+        self.reset_all_circles()
+        
+        # 根据发言者类型高亮
+        if speaker_name == "主持人" and self.moderator_circle:
+            self.set_circle_glow(self.moderator_circle, self.COLORS['moderator']['active'])
+        elif speaker_name.startswith("正方辩手"):
+            try:
+                idx = int(speaker_name[-1]) - 1
+                if 0 <= idx < len(self.pro_circles):
+                    self.set_circle_glow(self.pro_circles[idx], self.COLORS['pro']['active'])
+            except:
+                pass
+        elif speaker_name.startswith("反方辩手"):
+            try:
+                idx = int(speaker_name[-1]) - 1
+                if 0 <= idx < len(self.con_circles):
+                    self.set_circle_glow(self.con_circles[idx], self.COLORS['con']['active'])
+            except:
+                pass
+        elif speaker_name.startswith("裁判"):
+            try:
+                idx = int(speaker_name[-1]) - 1
+                if 0 <= idx < len(self.judge_circles):
+                    self.set_circle_glow(self.judge_circles[idx], self.COLORS['judge']['active'])
+            except:
+                pass
+    
+    def set_circle_glow(self, circle_data, color):
+        """设置圆圈发光效果"""
+        if not circle_data:
+            return
+        
+        # 更新圆圈颜色
+        self.stage_canvas.itemconfig(circle_data['circle'], fill=color, outline='#ffffff', width=4)
+        
+        # 添加发光效果
+        x, y, r = circle_data['x'], circle_data['y'], circle_data['radius']
+        self.stage_canvas.coords(circle_data['glow'], 
+                                 x - r - 8, y - r - 8, x + r + 8, y + r + 8)
+        self.stage_canvas.itemconfig(circle_data['glow'], outline=color, width=6)
+    
+    def reset_all_circles(self):
+        """重置所有圆圈颜色"""
+        # 主持人
+        if self.moderator_circle:
+            self.stage_canvas.itemconfig(self.moderator_circle['circle'], 
+                                         fill=self.COLORS['moderator']['normal'], outline='white', width=3)
+            self.stage_canvas.itemconfig(self.moderator_circle['glow'], outline='', width=0)
+        
+        # 正方
+        for circle in self.pro_circles:
+            self.stage_canvas.itemconfig(circle['circle'], 
+                                         fill=self.COLORS['pro']['normal'], outline='white', width=3)
+            self.stage_canvas.itemconfig(circle['glow'], outline='', width=0)
+        
+        # 反方
+        for circle in self.con_circles:
+            self.stage_canvas.itemconfig(circle['circle'], 
+                                         fill=self.COLORS['con']['normal'], outline='white', width=3)
+            self.stage_canvas.itemconfig(circle['glow'], outline='', width=0)
+        
+        # 裁判
+        for circle in self.judge_circles:
+            self.stage_canvas.itemconfig(circle['circle'], 
+                                         fill=self.COLORS['judge']['normal'], outline='white', width=3)
+            self.stage_canvas.itemconfig(circle['glow'], outline='', width=0)
     
     def _format_trait_display(self, trait):
         """格式化特质显示"""
@@ -796,9 +1017,21 @@ class DebateUI:
             # 保存配置结果
             self.config_result = config_window.result
             
+            # 设置已配置标志
+            self.is_configured = True
+            
+            # 更新辩手数量并重绘舞台
+            self.debaters_per_side = self.config_result['debaters_per_side']
+            self.judges_count = self.config_result['judges_count']
+            self.draw_stage()
+            
             # 清空所有文本框和历史记录
             self.clear_all_texts()
             self.debate_history.clear()
+            
+            # 重置发言者标签
+            self.pro_speaker_label.config(text="等待发言...")
+            self.con_speaker_label.config(text="等待发言...")
             
             # 启用开始辩论按钮
             self.start_button.config(state=tk.NORMAL)
@@ -902,9 +1135,21 @@ class DebateUI:
         self.debate_history.clear()
         self.current_speaker = None
         
+        # 重置发言者标签
+        self.pro_speaker_label.config(text="等待发言...")
+        self.con_speaker_label.config(text="等待发言...")
+        
+        # 重置圆圈颜色
+        self.reset_all_circles()
+        
         # 清除配置
         if hasattr(self, 'config_result'):
             delattr(self, 'config_result')
+        
+        # 重置辩手数量为默认值并重绘舞台
+        self.debaters_per_side = 3
+        self.judges_count = 3
+        self.draw_stage()
         
     def clear_all_texts(self):
         """清空所有文本框"""
@@ -960,26 +1205,22 @@ class DebateUI:
     
     def show_message(self, speaker_name, message):
         """在界面上显示消息"""
-        # 更新当前发言者
-        if self.current_speaker:
-            self.set_speaker_color(self.current_speaker, "normal")
+        # 高亮当前发言者圆圈
+        self.highlight_speaker(speaker_name)
         
         self.current_speaker = speaker_name
-        self.set_speaker_color(speaker_name, "speaking")
         
         # 显示消息
         if speaker_name == "主持人":
-            self.moderator_name_label.config(text=speaker_name)
             self.update_text_widget(self.moderator_text, message)
         elif speaker_name.startswith("正方辩手"):
-            self.pro_name_label.config(text=speaker_name)
+            self.pro_speaker_label.config(text=speaker_name)
             self.update_text_widget(self.pro_text, message)
         elif speaker_name.startswith("反方辩手"):
-            self.con_name_label.config(text=speaker_name)
+            self.con_speaker_label.config(text=speaker_name)
             self.update_text_widget(self.con_text, message)
         elif speaker_name.startswith("裁判"):
-            self.judges_name_label.config(text=speaker_name)
-            self.update_text_widget(self.judges_text, message)
+            self.update_text_widget(self.judges_text, f"【{speaker_name}】\n{message}")
         
         # 更新历史记录
         self.debate_history.append((speaker_name, message))
@@ -1036,31 +1277,8 @@ class DebateUI:
         self.history_text.see(tk.END)  # 滚动到最后
         self.history_text.config(state=tk.DISABLED)
     
-    def set_speaker_color(self, speaker_name, state):
-        """设置发言者的颜色状态"""
-        # 首先重置所有框架的样式
-        self.moderator_frame.config(style="TLabelframe")
-        self.pro_frame.config(style="TLabelframe")
-        self.con_frame.config(style="TLabelframe")
-        self.judges_frame.config(style="TLabelframe")
-        
-        # 然后为当前发言者所在的框架设置高亮样式
-        if state == "speaking":
-            if speaker_name == "主持人":
-                self.moderator_frame.config(style="Speaking.TLabelframe")
-            elif speaker_name.startswith("正方辩手"):
-                self.pro_frame.config(style="Speaking.TLabelframe")
-            elif speaker_name.startswith("反方辩手"):
-                self.con_frame.config(style="Speaking.TLabelframe")
-            elif speaker_name.startswith("裁判"):
-                self.judges_frame.config(style="Speaking.TLabelframe")
-    
     def run(self):
         """运行界面"""
-        # 创建样式
-        style = ttk.Style()
-        style.configure("Speaking.TLabelframe", background="#ffcccc")
-        
         self.root.mainloop()
     
     def export_debate(self):
