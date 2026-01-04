@@ -102,16 +102,21 @@ class DebaterAssistantAgent(AssistantAgent):
             for retry in range(max_retries):
                 reply = super().generate_reply(sender=sender, **kwargs)
                 extracted_reply = extractor.extract(reply)
-                
+
                 # 在控制台输出原始回复和提取后的回复
                 print(f"原始回复: {reply}")
                 print(f"提取回复: {extracted_reply}")
-                
+
                 if extracted_reply:
                     break
                 print(f"回复为空，进行第 {retry + 2} 次重试...")
-            
-            if extracted_reply and self.ui_callback:
+
+            # Ensure we always have a meaningful response
+            if not extracted_reply:
+                extracted_reply = "我正在思考这个问题，但暂时无法给出完整的回复。"
+                print(f"使用默认回复: {extracted_reply}")
+
+            if self.ui_callback:
                 self.ui_callback(self.name, extracted_reply)
 
             stateName = self.debate_sm.get_state_name()

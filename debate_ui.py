@@ -76,7 +76,7 @@ class DebateConfigWindow:
         # 自由辩论轮数
         ttk.Label(basic_config_frame, text="自由辩论轮数：").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
         self.free_debate_turns_var = tk.IntVar(value=self.free_debate_turns)
-        self.free_debate_turns_spinbox = ttk.Spinbox(basic_config_frame, from_=1, to=10, textvariable=self.free_debate_turns_var, width=5)
+        self.free_debate_turns_spinbox = ttk.Spinbox(basic_config_frame, from_=1, to=100, textvariable=self.free_debate_turns_var, width=5)
         self.free_debate_turns_spinbox.grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
         
         # 裁判人数
