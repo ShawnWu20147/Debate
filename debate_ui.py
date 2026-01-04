@@ -731,11 +731,11 @@ class DebateUI:
                                  bg=self.COLORS['panel_bg'], fg='#9b59b6', labelanchor='nw')
         mod_frame.pack(fill=tk.X, pady=(0, 10))
         
-        self.moderator_text = scrolledtext.ScrolledText(mod_frame, wrap=tk.WORD, height=4,
+        self.moderator_text = scrolledtext.ScrolledText(mod_frame, wrap=tk.WORD, height=8,
                                                         font=("Microsoft YaHei", 10),
                                                         bg=self.COLORS['text_bg'], state=tk.DISABLED,
                                                         relief='flat')
-        self.moderator_text.pack(fill=tk.X, padx=8, pady=8)
+        self.moderator_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
         # 舞台Canvas - 用于绘制辩手圆圈
         stage_container = tk.Frame(left_frame, bg=self.COLORS['stage_bg'], relief='ridge', bd=2)
@@ -765,7 +765,7 @@ class DebateUI:
                                          bg='#3498db', fg='white', pady=6)
         self.pro_speaker_label.pack(fill=tk.X, padx=5, pady=(5, 0))
         
-        self.pro_text = scrolledtext.ScrolledText(pro_frame, wrap=tk.WORD, height=10,
+        self.pro_text = scrolledtext.ScrolledText(pro_frame, wrap=tk.WORD, height=5,
                                                   font=("Microsoft YaHei", 10),
                                                   bg=self.COLORS['text_bg'], state=tk.DISABLED,
                                                   relief='flat')
@@ -781,7 +781,7 @@ class DebateUI:
                                          bg='#e74c3c', fg='white', pady=6)
         self.con_speaker_label.pack(fill=tk.X, padx=5, pady=(5, 0))
         
-        self.con_text = scrolledtext.ScrolledText(con_frame, wrap=tk.WORD, height=10,
+        self.con_text = scrolledtext.ScrolledText(con_frame, wrap=tk.WORD, height=5,
                                                   font=("Microsoft YaHei", 10),
                                                   bg=self.COLORS['text_bg'], state=tk.DISABLED,
                                                   relief='flat')
@@ -792,11 +792,11 @@ class DebateUI:
                                    bg=self.COLORS['panel_bg'], fg='#f39c12', labelanchor='nw')
         judge_frame.pack(fill=tk.X, pady=(10, 0))
         
-        self.judges_text = scrolledtext.ScrolledText(judge_frame, wrap=tk.WORD, height=4,
+        self.judges_text = scrolledtext.ScrolledText(judge_frame, wrap=tk.WORD, height=8,
                                                      font=("Microsoft YaHei", 10),
                                                      bg=self.COLORS['text_bg'], state=tk.DISABLED,
                                                      relief='flat')
-        self.judges_text.pack(fill=tk.X, padx=8, pady=8)
+        self.judges_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
         # 右侧：辩论历史
         right_frame = tk.LabelFrame(middle_frame, text="📜 辩论历史", font=("Microsoft YaHei", 12, "bold"),
