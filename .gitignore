@@ -137,3 +137,7 @@ cython_debug/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Claude setting
+.claude/settings.json
+.claude/settings.local.json
