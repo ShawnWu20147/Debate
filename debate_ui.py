@@ -13,10 +13,34 @@ class DebateConfigWindow:
         self.parent = parent
         self.window = tk.Toplevel(parent)
         self.window.title("辩论配置")
-        self.window.geometry("1000x700")
         self.window.resizable(True, True)
         self.window.transient(parent)  # 设置为父窗口的子窗口
         self.window.grab_set()  # 模态窗口
+        
+        # 设置窗口大小和位置（居中于父窗口）
+        window_width = 1000
+        window_height = 800
+        
+        # 获取父窗口的位置和大小
+        parent.update_idletasks()  # 确保获取到正确的尺寸
+        parent_x = parent.winfo_x()
+        parent_y = parent.winfo_y()
+        parent_width = parent.winfo_width()
+        parent_height = parent.winfo_height()
+        
+        # 计算居中位置
+        x = parent_x + (parent_width - window_width) // 2
+        y = parent_y + (parent_height - window_height) // 2
+        
+        # 确保窗口不会超出屏幕
+        x = max(0, x)
+        y = max(0, y)
+        
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.window.minsize(900, 600)  # 设置最小窗口大小
+        
+        # 绑定窗口关闭事件
+        self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
         
         # 配置结果
         self.result = None
@@ -48,9 +72,17 @@ class DebateConfigWindow:
     
     def create_widgets(self):
         """创建界面组件"""
-        # 主框架
-        main_frame = ttk.Frame(self.window, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # 主框架 - 使用Canvas实现滚动
+        self.main_canvas = tk.Canvas(self.window)
+        self.main_scrollbar = ttk.Scrollbar(self.window, orient="vertical", command=self.main_canvas.yview)
+        self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
+        
+        self.main_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.main_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # 创建内部框架
+        main_frame = ttk.Frame(self.main_canvas, padding="10")
+        self.main_canvas_window = self.main_canvas.create_window((0, 0), window=main_frame, anchor="nw")
         
         # 配置行和列的权重
         self.window.columnconfigure(0, weight=1)
@@ -58,9 +90,27 @@ class DebateConfigWindow:
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(0, weight=0)
-        main_frame.rowconfigure(1, weight=1)
+        main_frame.rowconfigure(1, weight=0)
         main_frame.rowconfigure(2, weight=1)
         main_frame.rowconfigure(3, weight=0)
+        main_frame.rowconfigure(4, weight=0)
+        
+        # 绑定滚动区域更新事件
+        def on_frame_configure(event):
+            self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+        
+        def on_canvas_configure(event):
+            # 使内部框架宽度跟随canvas宽度
+            self.main_canvas.itemconfig(self.main_canvas_window, width=event.width)
+        
+        main_frame.bind("<Configure>", on_frame_configure)
+        self.main_canvas.bind("<Configure>", on_canvas_configure)
+        
+        # 绑定鼠标滚轮事件
+        def on_mousewheel(event):
+            self.main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        self.main_canvas.bind_all("<MouseWheel>", on_mousewheel)
         
         # 基本配置区域
         basic_config_frame = ttk.LabelFrame(main_frame, text="基本配置", padding="5")
@@ -72,12 +122,18 @@ class DebateConfigWindow:
         self.debaters_per_side_spinbox = ttk.Spinbox(basic_config_frame, from_=1, to=5, textvariable=self.debaters_per_side_var, width=5,
                                                    command=self.on_debaters_per_side_change)
         self.debaters_per_side_spinbox.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+        # 绑定键盘事件，支持手动输入
+        self.debaters_per_side_spinbox.bind("<Return>", lambda e: self.on_debaters_per_side_change())
+        self.debaters_per_side_spinbox.bind("<FocusOut>", lambda e: self.on_debaters_per_side_change())
         
         # 自由辩论轮数
         ttk.Label(basic_config_frame, text="自由辩论轮数：").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
         self.free_debate_turns_var = tk.IntVar(value=self.free_debate_turns)
         self.free_debate_turns_spinbox = ttk.Spinbox(basic_config_frame, from_=1, to=100, textvariable=self.free_debate_turns_var, width=5)
         self.free_debate_turns_spinbox.grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
+        # 绑定键盘事件，支持手动输入
+        self.free_debate_turns_spinbox.bind("<Return>", lambda e: self.on_free_debate_turns_change())
+        self.free_debate_turns_spinbox.bind("<FocusOut>", lambda e: self.on_free_debate_turns_change())
         
         # 裁判人数
         ttk.Label(basic_config_frame, text="裁判人数：").grid(row=0, column=4, padx=5, pady=5, sticky=tk.W)
@@ -85,6 +141,9 @@ class DebateConfigWindow:
         self.judges_count_spinbox = ttk.Spinbox(basic_config_frame, from_=1, to=5, textvariable=self.judges_count_var, width=5,
                                               command=self.on_judges_count_change)
         self.judges_count_spinbox.grid(row=0, column=5, padx=5, pady=5, sticky=tk.W)
+        # 绑定键盘事件，支持手动输入
+        self.judges_count_spinbox.bind("<Return>", lambda e: self.on_judges_count_change())
+        self.judges_count_spinbox.bind("<FocusOut>", lambda e: self.on_judges_count_change())
         
         # 主持人配置区域
         moderator_frame = ttk.LabelFrame(main_frame, text="主持人配置", padding="5")
@@ -179,10 +238,6 @@ class DebateConfigWindow:
         self.randomize_traits_button = ttk.Button(left_button_frame, text="一键随机化特质", command=self.randomize_all_traits)
         self.randomize_traits_button.grid(row=0, column=0, padx=5, pady=5)
         
-        # 重置自定义特质按钮
-        self.reset_traits_button = ttk.Button(left_button_frame, text="重置自定义特质", command=self.reset_custom_traits)
-        self.reset_traits_button.grid(row=0, column=1, padx=5, pady=5)
-        
         # 右侧：保存取消按钮
         right_button_frame = ttk.Frame(button_frame)
         right_button_frame.grid(row=0, column=1, sticky=tk.E)
@@ -221,14 +276,54 @@ class DebateConfigWindow:
     
     def on_debaters_per_side_change(self):
         """每方辩手人数变化时的处理"""
-        self.debaters_per_side = self.debaters_per_side_var.get()
-        self.update_debater_model_widgets()
-        self.update_debater_traits_widgets()
+        try:
+            value = self.debaters_per_side_var.get()
+            # 验证范围
+            if value < 1:
+                value = 1
+                self.debaters_per_side_var.set(value)
+            elif value > 5:
+                value = 5
+                self.debaters_per_side_var.set(value)
+            self.debaters_per_side = value
+            self.update_debater_model_widgets()
+            self.update_debater_traits_widgets()
+        except tk.TclError:
+            # 输入无效值时恢复默认
+            self.debaters_per_side_var.set(self.debaters_per_side)
+    
+    def on_free_debate_turns_change(self):
+        """自由辩论轮数变化时的处理"""
+        try:
+            value = self.free_debate_turns_var.get()
+            # 验证范围
+            if value < 1:
+                value = 1
+                self.free_debate_turns_var.set(value)
+            elif value > 100:
+                value = 100
+                self.free_debate_turns_var.set(value)
+            self.free_debate_turns = value
+        except tk.TclError:
+            # 输入无效值时恢复默认
+            self.free_debate_turns_var.set(self.free_debate_turns)
     
     def on_judges_count_change(self):
         """裁判人数变化时的处理"""
-        self.judges_count = self.judges_count_var.get()
-        self.update_judge_model_widgets()
+        try:
+            value = self.judges_count_var.get()
+            # 验证范围
+            if value < 1:
+                value = 1
+                self.judges_count_var.set(value)
+            elif value > 5:
+                value = 5
+                self.judges_count_var.set(value)
+            self.judges_count = value
+            self.update_judge_model_widgets()
+        except tk.TclError:
+            # 输入无效值时恢复默认
+            self.judges_count_var.set(self.judges_count)
     
     def on_pro_company_change(self, event):
         """正方公司变化时的处理"""
@@ -341,71 +436,57 @@ class DebateConfigWindow:
         for widget in self.pro_traits_frame.winfo_children():
             widget.destroy()
         
-        # 获取所有特质（预定义 + 自定义）
+        # 获取预定义特质，加上自定义选项
         predefined_traits = get_all_trait_names()
-        custom_traits = self.get_custom_traits()
-        all_traits = predefined_traits + ["=== 自定义特质 ==="] + custom_traits
+        all_traits = predefined_traits + ["自定义"]
         
         # 创建新的特质选择控件
         self.pro_traits = []
+        self.pro_custom_entries = []  # 存储自定义输入框引用
         for i in range(self.debaters_per_side_var.get()):
             # 特质标签
             trait_label = ttk.Label(self.pro_traits_frame, text=f"辩手{i+1}特质：", font=("Arial", 9, "bold"))
-            trait_label.grid(row=i*3, column=0, padx=8, pady=3, sticky=tk.W)
+            trait_label.grid(row=i*2, column=0, padx=8, pady=3, sticky=tk.W)
             
             # 特质下拉框
             trait_var = tk.StringVar()
             trait_combobox = ttk.Combobox(self.pro_traits_frame, textvariable=trait_var, values=all_traits, 
                                         width=20, state="readonly", font=("Arial", 9))
-            trait_combobox.grid(row=i*3, column=1, padx=8, pady=3, sticky=(tk.W, tk.E))
+            trait_combobox.grid(row=i*2, column=1, padx=8, pady=3, sticky=(tk.W, tk.E))
             
             # 默认选择第一个特质
             if predefined_traits:
                 trait_var.set(predefined_traits[0])
             
-            # 自定义特质输入框（初始隐藏）
-            custom_frame = ttk.Frame(self.pro_traits_frame)
-            custom_frame.grid(row=i*3+1, column=0, columnspan=2, padx=15, pady=2, sticky=(tk.W, tk.E))
+            # 特质描述文本框（可编辑，选择自定义时用户直接输入）
+            desc_text = tk.Text(self.pro_traits_frame, height=2, width=45, wrap=tk.WORD, 
+                              font=("Arial", 8), bg="#f8f9fa", relief="solid", bd=1)
+            desc_text.grid(row=i*2+1, column=0, columnspan=2, padx=20, pady=5, sticky=(tk.W, tk.E))
             
-            custom_label = ttk.Label(custom_frame, text="自定义特质描述：", font=("Arial", 8))
-            custom_label.grid(row=0, column=0, padx=5, pady=2, sticky=tk.W)
+            # 显示默认特质描述
+            if predefined_traits:
+                trait_info = get_trait_info(predefined_traits[0])
+                desc_text.insert(tk.END, trait_info.get("description", ""))
+                desc_text.config(state=tk.DISABLED)  # 预定义特质不可编辑
             
-            custom_entry = ttk.Entry(custom_frame, width=40, font=("Arial", 8))
-            custom_entry.grid(row=0, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-            
-            add_button = ttk.Button(custom_frame, text="添加特质", 
-                                  command=lambda idx=i, cb=trait_combobox, entry=custom_entry: 
-                                  self.add_custom_trait(idx, "pro", cb, entry))
-            add_button.grid(row=0, column=2, padx=5, pady=2)
-            
-            # 隐藏自定义输入框
-            custom_frame.grid_remove()
+            self.pro_custom_entries.append(desc_text)
             
             # 绑定特质变化事件
-            def on_trait_change(event, idx=i, cb=trait_combobox, custom_f=custom_frame):
+            def on_trait_change(event, idx=i, cb=trait_combobox, desc=desc_text):
                 selected_trait = cb.get()
-                if selected_trait == "=== 自定义特质 ===":
-                    custom_f.grid()  # 显示自定义输入框
+                desc.config(state=tk.NORMAL)
+                desc.delete("1.0", tk.END)
+                if selected_trait == "自定义":
+                    desc.insert(tk.END, "请输入自定义特质描述...")
+                    desc.config(bg="#ffffff")  # 白色背景表示可编辑
                 else:
-                    custom_f.grid_remove()  # 隐藏自定义输入框
-                    self.show_trait_preview(idx, "pro", selected_trait)
+                    trait_info = get_trait_info(selected_trait)
+                    desc.insert(tk.END, trait_info.get("description", ""))
+                    desc.config(state=tk.DISABLED, bg="#f8f9fa")  # 灰色背景表示只读
             
             trait_combobox.bind("<<ComboboxSelected>>", on_trait_change)
             
             self.pro_traits.append(trait_var)
-            
-            # 特质预览文本框
-            preview_text = tk.Text(self.pro_traits_frame, height=3, width=45, wrap=tk.WORD, 
-                                 font=("Arial", 8), bg="#f8f9fa", relief="solid", bd=1)
-            preview_text.grid(row=i*3+2, column=0, columnspan=2, padx=20, pady=5, sticky=(tk.W, tk.E))
-            preview_text.config(state=tk.DISABLED)
-            
-            # 显示默认特质预览
-            if predefined_traits:
-                trait_info = get_trait_info(predefined_traits[0])
-                preview_text.config(state=tk.NORMAL)
-                preview_text.insert(tk.END, trait_info.get("description", ""))
-                preview_text.config(state=tk.DISABLED)
     
     def update_con_traits_options(self):
         """更新反方辩手特质选项"""
@@ -413,206 +494,102 @@ class DebateConfigWindow:
         for widget in self.con_traits_frame.winfo_children():
             widget.destroy()
         
-        # 获取所有特质（预定义 + 自定义）
+        # 获取预定义特质，加上自定义选项
         predefined_traits = get_all_trait_names()
-        custom_traits = self.get_custom_traits()
-        all_traits = predefined_traits + ["=== 自定义特质 ==="] + custom_traits
+        all_traits = predefined_traits + ["自定义"]
         
         # 创建新的特质选择控件
         self.con_traits = []
+        self.con_custom_entries = []  # 存储自定义输入框引用
         for i in range(self.debaters_per_side_var.get()):
             # 特质标签
             trait_label = ttk.Label(self.con_traits_frame, text=f"辩手{i+1}特质：", font=("Arial", 9, "bold"))
-            trait_label.grid(row=i*3, column=0, padx=8, pady=3, sticky=tk.W)
+            trait_label.grid(row=i*2, column=0, padx=8, pady=3, sticky=tk.W)
             
             # 特质下拉框
             trait_var = tk.StringVar()
             trait_combobox = ttk.Combobox(self.con_traits_frame, textvariable=trait_var, values=all_traits, 
                                         width=20, state="readonly", font=("Arial", 9))
-            trait_combobox.grid(row=i*3, column=1, padx=8, pady=3, sticky=(tk.W, tk.E))
+            trait_combobox.grid(row=i*2, column=1, padx=8, pady=3, sticky=(tk.W, tk.E))
             
             # 默认选择第一个特质
             if predefined_traits:
                 trait_var.set(predefined_traits[0])
             
-            # 自定义特质输入框（初始隐藏）
-            custom_frame = ttk.Frame(self.con_traits_frame)
-            custom_frame.grid(row=i*3+1, column=0, columnspan=2, padx=15, pady=2, sticky=(tk.W, tk.E))
+            # 特质描述文本框（可编辑，选择自定义时用户直接输入）
+            desc_text = tk.Text(self.con_traits_frame, height=2, width=45, wrap=tk.WORD, 
+                              font=("Arial", 8), bg="#f8f9fa", relief="solid", bd=1)
+            desc_text.grid(row=i*2+1, column=0, columnspan=2, padx=20, pady=5, sticky=(tk.W, tk.E))
             
-            custom_label = ttk.Label(custom_frame, text="自定义特质描述：", font=("Arial", 8))
-            custom_label.grid(row=0, column=0, padx=5, pady=2, sticky=tk.W)
+            # 显示默认特质描述
+            if predefined_traits:
+                trait_info = get_trait_info(predefined_traits[0])
+                desc_text.insert(tk.END, trait_info.get("description", ""))
+                desc_text.config(state=tk.DISABLED)  # 预定义特质不可编辑
             
-            custom_entry = ttk.Entry(custom_frame, width=40, font=("Arial", 8))
-            custom_entry.grid(row=0, column=1, padx=5, pady=2, sticky=(tk.W, tk.E))
-            
-            add_button = ttk.Button(custom_frame, text="添加特质", 
-                                  command=lambda idx=i, cb=trait_combobox, entry=custom_entry: 
-                                  self.add_custom_trait(idx, "con", cb, entry))
-            add_button.grid(row=0, column=2, padx=5, pady=2)
-            
-            # 隐藏自定义输入框
-            custom_frame.grid_remove()
+            self.con_custom_entries.append(desc_text)
             
             # 绑定特质变化事件
-            def on_trait_change(event, idx=i, cb=trait_combobox, custom_f=custom_frame):
+            def on_trait_change(event, idx=i, cb=trait_combobox, desc=desc_text):
                 selected_trait = cb.get()
-                if selected_trait == "=== 自定义特质 ===":
-                    custom_f.grid()  # 显示自定义输入框
+                desc.config(state=tk.NORMAL)
+                desc.delete("1.0", tk.END)
+                if selected_trait == "自定义":
+                    desc.insert(tk.END, "请输入自定义特质描述...")
+                    desc.config(bg="#ffffff")  # 白色背景表示可编辑
                 else:
-                    custom_f.grid_remove()  # 隐藏自定义输入框
-                    self.show_trait_preview(idx, "con", selected_trait)
+                    trait_info = get_trait_info(selected_trait)
+                    desc.insert(tk.END, trait_info.get("description", ""))
+                    desc.config(state=tk.DISABLED, bg="#f8f9fa")  # 灰色背景表示只读
             
             trait_combobox.bind("<<ComboboxSelected>>", on_trait_change)
             
             self.con_traits.append(trait_var)
-            
-            # 特质预览文本框
-            preview_text = tk.Text(self.con_traits_frame, height=3, width=45, wrap=tk.WORD, 
-                                 font=("Arial", 8), bg="#f8f9fa", relief="solid", bd=1)
-            preview_text.grid(row=i*3+2, column=0, columnspan=2, padx=20, pady=5, sticky=(tk.W, tk.E))
-            preview_text.config(state=tk.DISABLED)
-            
-            # 显示默认特质预览
-            if predefined_traits:
-                trait_info = get_trait_info(predefined_traits[0])
-                preview_text.config(state=tk.NORMAL)
-                preview_text.insert(tk.END, trait_info.get("description", ""))
-                preview_text.config(state=tk.DISABLED)
-    
-    def get_custom_traits(self):
-        """获取自定义特质列表"""
-        # 加载自定义特质
-        from debater_traits import load_custom_traits_from_file, get_all_trait_names
-        
-        # 加载已保存的自定义特质
-        load_custom_traits_from_file()
-        
-        # 获取所有特质名称
-        all_traits = get_all_trait_names()
-        
-        # 分离预定义和自定义特质
-        predefined_traits = {
-            "理性数据流", "逻辑诡辩流", "心理操控流", "激情演讲流", 
-            "经验实用流", "道德评判流", "幽默讽刺流", "权威引用流"
-        }
-        
-        custom_traits = [trait for trait in all_traits if trait not in predefined_traits]
-        return custom_traits
-    
-    def reset_custom_traits(self):
-        """重置所有自定义特质"""
-        from debater_traits import reset_custom_traits, save_custom_traits_to_file
-        
-        # 确认对话框
-        result = tk.messagebox.askyesno("确认重置", 
-                                       "确定要删除所有自定义特质吗？\n此操作不可撤销！")
-        if not result:
-            return
-        
-        # 重置特质
-        reset_custom_traits()
-        save_custom_traits_to_file()
-        
-        # 更新所有特质选择控件
-        self.update_debater_traits_widgets()
-        
-        # 显示成功消息
-        tk.messagebox.showinfo("成功", "所有自定义特质已重置！")
-    
-    def add_custom_trait(self, debater_index, side, combobox, entry):
-        """添加自定义特质"""
-        trait_description = entry.get().strip()
-        if not trait_description:
-            tk.messagebox.showwarning("警告", "请输入特质描述！")
-            return
-        
-        # 生成特质名称
-        import time
-        timestamp = int(time.time())
-        trait_name = f"自定义特质_{timestamp}"
-        
-        # 创建自定义特质信息
-        from debater_traits import create_custom_trait
-        custom_trait_info = create_custom_trait(trait_description)
-        
-        # 更新debater_traits模块
-        from debater_traits import add_custom_trait_to_registry
-        add_custom_trait_to_registry(trait_name, custom_trait_info)
-        
-        # 保存到文件
-        from debater_traits import save_custom_traits_to_file
-        save_custom_traits_to_file()
-        
-        # 清空输入框
-        entry.delete(0, tk.END)
-        
-        # 更新下拉框选项
-        predefined_traits = get_all_trait_names()
-        custom_traits = self.get_custom_traits()
-        all_traits = predefined_traits + ["=== 自定义特质 ==="] + custom_traits
-        combobox['values'] = all_traits
-        combobox.set(trait_name)
-        
-        # 隐藏自定义输入框
-        custom_frame = combobox.master
-        for child in custom_frame.winfo_children():
-            if isinstance(child, ttk.Frame):
-                child.grid_remove()
-        
-        # 显示特质预览
-        self.show_trait_preview(debater_index, side, trait_name)
-        
-        # 显示成功消息
-        tk.messagebox.showinfo("成功", f"自定义特质 '{trait_name}' 添加成功！")
-    
-    def show_trait_preview(self, debater_index, side, trait_name):
-        """显示特质预览"""
-        # 从debater_traits模块获取特质信息
-        from debater_traits import get_trait_info
-        trait_info = get_trait_info(trait_name)
-        
-        if not trait_info:
-            # 如果没找到，返回默认描述
-            if trait_name == "=== 自定义特质 ===":
-                description = "选择此选项可以创建新的自定义辩论特质"
-            else:
-                description = f"特质：{trait_name}"
-        else:
-            description = trait_info.get("description", "无描述信息")
-        
-        # 获取对应的预览文本框
-        if side == "pro":
-            preview_widgets = [widget for widget in self.pro_traits_frame.winfo_children() 
-                             if isinstance(widget, tk.Text)]
-        else:
-            preview_widgets = [widget for widget in self.con_traits_frame.winfo_children() 
-                             if isinstance(widget, tk.Text)]
-        
-        if debater_index < len(preview_widgets):
-            preview_text = preview_widgets[debater_index]
-            preview_text.config(state=tk.NORMAL)
-            preview_text.delete(1.0, tk.END)
-            
-            # 如果是自定义特质，添加标识
-            if trait_name.startswith("自定义特质_"):
-                description = f"【自定义特质】\n{description}"
-            
-            preview_text.insert(tk.END, description)
-            preview_text.config(state=tk.DISABLED)
     
     def randomize_all_traits(self):
         """一键随机化所有辩手特质"""
+        predefined_traits = get_all_trait_names()
+        
         # 随机化正方特质
         for i, trait_var in enumerate(self.pro_traits):
             random_trait = get_random_trait()
             trait_var.set(random_trait)
-            self.show_trait_preview(i, "pro", random_trait)
+            # 更新描述文本框
+            if i < len(self.pro_custom_entries):
+                desc_text = self.pro_custom_entries[i]
+                desc_text.config(state=tk.NORMAL)
+                desc_text.delete("1.0", tk.END)
+                trait_info = get_trait_info(random_trait)
+                desc_text.insert(tk.END, trait_info.get("description", ""))
+                desc_text.config(state=tk.DISABLED, bg="#f8f9fa")
         
         # 随机化反方特质
         for i, trait_var in enumerate(self.con_traits):
             random_trait = get_random_trait()
             trait_var.set(random_trait)
-            self.show_trait_preview(i, "con", random_trait)
+            # 更新描述文本框
+            if i < len(self.con_custom_entries):
+                desc_text = self.con_custom_entries[i]
+                desc_text.config(state=tk.NORMAL)
+                desc_text.delete("1.0", tk.END)
+                trait_info = get_trait_info(random_trait)
+                desc_text.insert(tk.END, trait_info.get("description", ""))
+                desc_text.config(state=tk.DISABLED, bg="#f8f9fa")
+    
+    def get_trait_with_description(self, traits_list, custom_entries, side):
+        """获取特质及其描述，处理自定义特质"""
+        result = []
+        for i, trait_var in enumerate(traits_list):
+            trait_name = trait_var.get()
+            if trait_name == "自定义":
+                # 获取自定义描述
+                custom_desc = custom_entries[i].get("1.0", tk.END).strip()
+                if custom_desc == "请输入自定义特质描述..." or not custom_desc:
+                    custom_desc = "默认辩论风格"
+                result.append({"name": "自定义", "description": custom_desc})
+            else:
+                result.append({"name": trait_name, "description": None})
+        return result
     
     def save_config(self):
         """保存配置"""
@@ -622,20 +599,35 @@ class DebateConfigWindow:
             "judges_count": self.judges_count_var.get(),
             "pro_company": self.pro_company_var.get(),
             "pro_models": [var.get() for var in self.pro_models],
-            "pro_traits": [var.get() for var in self.pro_traits],
+            "pro_traits": self.get_trait_with_description(self.pro_traits, self.pro_custom_entries, "pro"),
             "con_company": self.con_company_var.get(),
             "con_models": [var.get() for var in self.con_models],
-            "con_traits": [var.get() for var in self.con_traits],
+            "con_traits": self.get_trait_with_description(self.con_traits, self.con_custom_entries, "con"),
             "judge_models": [var.get() for var in self.judge_models],
             "moderator_company": self.moderator_company_var.get(),
             "moderator_model": self.moderator_model_var.get()
         }
+        self.unbind_mousewheel()
         self.window.destroy()
     
     def cancel_config(self):
         """取消配置"""
         self.result = None
+        self.unbind_mousewheel()
         self.window.destroy()
+    
+    def on_window_close(self):
+        """窗口关闭事件处理"""
+        self.result = None
+        self.unbind_mousewheel()
+        self.window.destroy()
+    
+    def unbind_mousewheel(self):
+        """解除鼠标滚轮绑定"""
+        try:
+            self.main_canvas.unbind_all("<MouseWheel>")
+        except:
+            pass
 
 class DebateUI:
     """辩论界面类"""

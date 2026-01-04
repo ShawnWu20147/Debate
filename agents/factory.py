@@ -62,10 +62,24 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, trait_assignm
         pro_model = pro_models[(i-1) % len(pro_models)]
         print(f"Debug: 正方辩手{i}选择的模型: {pro_model}")
         
-        # 获取特质信息
-        trait_name = pro_traits[(i-1) % len(pro_traits)] if pro_traits else ""
-        trait_info_data = get_trait_info(trait_name) if trait_name else {}
-        trait_prompt = trait_info_data.get("prompt_addition", "")
+        # 获取特质信息（支持新的字典格式和旧的字符串格式）
+        trait_data = pro_traits[(i-1) % len(pro_traits)] if pro_traits else None
+        if isinstance(trait_data, dict):
+            # 新格式：{"name": "...", "description": "..."}
+            trait_name = trait_data.get("name", "")
+            custom_description = trait_data.get("description")
+            if trait_name == "自定义" and custom_description:
+                # 自定义特质，直接使用用户输入的描述
+                trait_prompt = custom_description
+            else:
+                # 预定义特质，从配置获取
+                trait_info_data = get_trait_info(trait_name) if trait_name else {}
+                trait_prompt = trait_info_data.get("prompt_addition", "")
+        else:
+            # 旧格式：字符串
+            trait_name = trait_data if trait_data else ""
+            trait_info_data = get_trait_info(trait_name) if trait_name else {}
+            trait_prompt = trait_info_data.get("prompt_addition", "")
         
         print(f"Debug: 正方辩手{i}的特质: {trait_name}")
         
@@ -92,10 +106,24 @@ def create_agents(debate_topic, debate_sm, model_assignments=None, trait_assignm
         con_model = con_models[(i-1) % len(con_models)]
         print(f"Debug: 反方辩手{i}选择的模型: {con_model}")
         
-        # 获取特质信息
-        trait_name = con_traits[(i-1) % len(con_traits)] if con_traits else ""
-        trait_info_data = get_trait_info(trait_name) if trait_name else {}
-        trait_prompt = trait_info_data.get("prompt_addition", "")
+        # 获取特质信息（支持新的字典格式和旧的字符串格式）
+        trait_data = con_traits[(i-1) % len(con_traits)] if con_traits else None
+        if isinstance(trait_data, dict):
+            # 新格式：{"name": "...", "description": "..."}
+            trait_name = trait_data.get("name", "")
+            custom_description = trait_data.get("description")
+            if trait_name == "自定义" and custom_description:
+                # 自定义特质，直接使用用户输入的描述
+                trait_prompt = custom_description
+            else:
+                # 预定义特质，从配置获取
+                trait_info_data = get_trait_info(trait_name) if trait_name else {}
+                trait_prompt = trait_info_data.get("prompt_addition", "")
+        else:
+            # 旧格式：字符串
+            trait_name = trait_data if trait_data else ""
+            trait_info_data = get_trait_info(trait_name) if trait_name else {}
+            trait_prompt = trait_info_data.get("prompt_addition", "")
         
         print(f"Debug: 反方辩手{i}的特质: {trait_name}")
         
