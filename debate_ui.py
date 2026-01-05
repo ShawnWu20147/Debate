@@ -642,6 +642,8 @@ class DebateUI:
         'panel_bg': '#16213e',
         'text_bg': '#f8f9fa',
         'stage_bg': '#0f3460',
+        'btn_disabled_bg': '#4a5568',
+        'btn_disabled_fg': '#718096',
     }
     
     def __init__(self, debate_func):
@@ -707,16 +709,24 @@ class DebateUI:
         self.init_config_button = tk.Button(top_frame, text="初始化配置", bg='#3498db', fg='white',
                                            activebackground='#2980b9', command=self.init_config, **btn_style)
         self.init_config_button.pack(side=tk.LEFT, padx=8, ipady=8)
+        self.init_config_button._orig_bg = '#3498db'
+        self.init_config_button._orig_fg = 'white'
         
-        self.start_button = tk.Button(top_frame, text="开始辩论", bg='#27ae60', fg='white',
+        self.start_button = tk.Button(top_frame, text="开始辩论", bg=self.COLORS['btn_disabled_bg'], 
+                                     fg=self.COLORS['btn_disabled_fg'],
                                      activebackground='#219a52', command=self.start_debate,
                                      state=tk.DISABLED, **btn_style)
         self.start_button.pack(side=tk.LEFT, padx=8, ipady=8)
+        self.start_button._orig_bg = '#27ae60'
+        self.start_button._orig_fg = 'white'
         
-        self.restart_button = tk.Button(top_frame, text="重新开始", bg='#e74c3c', fg='white',
+        self.restart_button = tk.Button(top_frame, text="重新开始", bg=self.COLORS['btn_disabled_bg'], 
+                                       fg=self.COLORS['btn_disabled_fg'],
                                        activebackground='#c0392b', command=self.restart_debate,
                                        state=tk.DISABLED, **btn_style)
         self.restart_button.pack(side=tk.LEFT, padx=8, ipady=8)
+        self.restart_button._orig_bg = '#e74c3c'
+        self.restart_button._orig_fg = 'white'
         
         # ========== 中间区域 ==========
         middle_frame = tk.Frame(main_frame, bg=self.COLORS['bg'])
@@ -742,7 +752,7 @@ class DebateUI:
         stage_container.pack(fill=tk.X, pady=10)
         
         self.stage_canvas = tk.Canvas(stage_container, bg=self.COLORS['stage_bg'], 
-                                      highlightthickness=0, height=180)
+                                      highlightthickness=0, height=220)
         self.stage_canvas.pack(fill=tk.X, padx=5, pady=5)
         
         # 绑定窗口大小变化事件
@@ -867,7 +877,7 @@ class DebateUI:
         
         # 绘制正方辩手圆圈
         self.pro_circles = []
-        y_pos = 130
+        y_pos = 110
         if self.debaters_per_side > 0:
             pro_spacing = (width // 2 - 80) // (self.debaters_per_side + 1)
             for i in range(self.debaters_per_side):
@@ -887,7 +897,7 @@ class DebateUI:
         # 绘制裁判圆圈（底部居中）
         self.judge_circles = []
         if self.judges_count > 0:
-            judge_y = height - 30
+            judge_y = height - 45
             total_judge_width = (self.judges_count - 1) * 80
             judge_start_x = (width - total_judge_width) // 2
             for i in range(self.judges_count):
@@ -896,24 +906,42 @@ class DebateUI:
                 self.judge_circles.append(circle)
     
     def draw_circle(self, x, y, radius, color, label):
-        """绘制带标签的圆圈"""
+        """绘制人物头像图标"""
         # 绘制外圈（用于发光效果）
         glow = self.stage_canvas.create_oval(
-            x - radius - 5, y - radius - 5,
-            x + radius + 5, y + radius + 5,
+            x - radius - 8, y - radius - 8,
+            x + radius + 8, y + radius + 8,
             fill='', outline='', width=0, tags=f"glow_{label}"
         )
-        # 绘制主圆圈
-        circle = self.stage_canvas.create_oval(
-            x - radius, y - radius,
-            x + radius, y + radius,
-            fill=color, outline='white', width=3, tags=f"circle_{label}"
+        
+        # 绘制身体（梯形/半圆形）
+        body_top = y + radius * 0.3
+        body_bottom = y + radius
+        body_width = radius * 0.8
+        body = self.stage_canvas.create_arc(
+            x - body_width, body_top - radius * 0.3,
+            x + body_width, body_bottom + radius * 0.5,
+            start=0, extent=180, fill=color, outline=color, 
+            style='pieslice', tags=f"body_{label}"
         )
-        # 绘制标签
+        
+        # 绘制头部（圆形）
+        head_radius = radius * 0.45
+        head_y = y - radius * 0.15
+        head = self.stage_canvas.create_oval(
+            x - head_radius, head_y - head_radius,
+            x + head_radius, head_y + head_radius,
+            fill=color, outline='white', width=2, tags=f"head_{label}"
+        )
+        
+        # 绘制标签（在图标下方）
         text = self.stage_canvas.create_text(
-            x, y, text=label, font=("Microsoft YaHei", 10, "bold"), fill='white', tags=f"text_{label}"
+            x, y + radius + 12, text=label, 
+            font=("Microsoft YaHei", 9, "bold"), fill='white', tags=f"text_{label}"
         )
-        return {'glow': glow, 'circle': circle, 'text': text, 'x': x, 'y': y, 'radius': radius}
+        
+        return {'glow': glow, 'head': head, 'body': body, 'text': text, 
+                'x': x, 'y': y, 'radius': radius, 'color': color}
     
     def on_stage_resize(self, event):
         """舞台大小变化时重绘"""
@@ -950,44 +978,67 @@ class DebateUI:
                 pass
     
     def set_circle_glow(self, circle_data, color):
-        """设置圆圈发光效果"""
+        """设置人物图标发光效果"""
         if not circle_data:
             return
         
-        # 更新圆圈颜色
-        self.stage_canvas.itemconfig(circle_data['circle'], fill=color, outline='#ffffff', width=4)
+        # 更新头部和身体颜色
+        if 'head' in circle_data:
+            self.stage_canvas.itemconfig(circle_data['head'], fill=color, outline='#ffffff', width=3)
+        if 'body' in circle_data:
+            self.stage_canvas.itemconfig(circle_data['body'], fill=color, outline=color)
         
         # 添加发光效果
         x, y, r = circle_data['x'], circle_data['y'], circle_data['radius']
         self.stage_canvas.coords(circle_data['glow'], 
-                                 x - r - 8, y - r - 8, x + r + 8, y + r + 8)
-        self.stage_canvas.itemconfig(circle_data['glow'], outline=color, width=6)
+                                 x - r - 12, y - r - 12, x + r + 12, y + r + 12)
+        self.stage_canvas.itemconfig(circle_data['glow'], outline=color, width=8)
     
     def reset_all_circles(self):
-        """重置所有圆圈颜色"""
+        """重置所有人物图标颜色"""
         # 主持人
         if self.moderator_circle:
-            self.stage_canvas.itemconfig(self.moderator_circle['circle'], 
-                                         fill=self.COLORS['moderator']['normal'], outline='white', width=3)
+            orig_color = self.moderator_circle.get('color', self.COLORS['moderator']['normal'])
+            if 'head' in self.moderator_circle:
+                self.stage_canvas.itemconfig(self.moderator_circle['head'], fill=orig_color, outline='white', width=2)
+            if 'body' in self.moderator_circle:
+                self.stage_canvas.itemconfig(self.moderator_circle['body'], fill=orig_color, outline=orig_color)
             self.stage_canvas.itemconfig(self.moderator_circle['glow'], outline='', width=0)
         
         # 正方
         for circle in self.pro_circles:
-            self.stage_canvas.itemconfig(circle['circle'], 
-                                         fill=self.COLORS['pro']['normal'], outline='white', width=3)
+            orig_color = circle.get('color', self.COLORS['pro']['normal'])
+            if 'head' in circle:
+                self.stage_canvas.itemconfig(circle['head'], fill=orig_color, outline='white', width=2)
+            if 'body' in circle:
+                self.stage_canvas.itemconfig(circle['body'], fill=orig_color, outline=orig_color)
             self.stage_canvas.itemconfig(circle['glow'], outline='', width=0)
         
         # 反方
         for circle in self.con_circles:
-            self.stage_canvas.itemconfig(circle['circle'], 
-                                         fill=self.COLORS['con']['normal'], outline='white', width=3)
+            orig_color = circle.get('color', self.COLORS['con']['normal'])
+            if 'head' in circle:
+                self.stage_canvas.itemconfig(circle['head'], fill=orig_color, outline='white', width=2)
+            if 'body' in circle:
+                self.stage_canvas.itemconfig(circle['body'], fill=orig_color, outline=orig_color)
             self.stage_canvas.itemconfig(circle['glow'], outline='', width=0)
         
         # 裁判
         for circle in self.judge_circles:
-            self.stage_canvas.itemconfig(circle['circle'], 
-                                         fill=self.COLORS['judge']['normal'], outline='white', width=3)
+            orig_color = circle.get('color', self.COLORS['judge']['normal'])
+            if 'head' in circle:
+                self.stage_canvas.itemconfig(circle['head'], fill=orig_color, outline='white', width=2)
+            if 'body' in circle:
+                self.stage_canvas.itemconfig(circle['body'], fill=orig_color, outline=orig_color)
             self.stage_canvas.itemconfig(circle['glow'], outline='', width=0)
+    
+    def set_button_state(self, button, enabled):
+        """设置按钮状态并更新颜色"""
+        if enabled:
+            button.config(state=tk.NORMAL, bg=button._orig_bg, fg=button._orig_fg, cursor='hand2')
+        else:
+            button.config(state=tk.DISABLED, bg=self.COLORS['btn_disabled_bg'], 
+                         fg=self.COLORS['btn_disabled_fg'], cursor='arrow')
     
     def _format_trait_display(self, trait):
         """格式化特质显示"""
@@ -1034,7 +1085,7 @@ class DebateUI:
             self.con_speaker_label.config(text="等待发言...")
             
             # 启用开始辩论按钮
-            self.start_button.config(state=tk.NORMAL)
+            self.set_button_state(self.start_button, True)
             
             # 构建配置信息
             config_info = "\n" + "="*50 + "\n"
@@ -1088,9 +1139,9 @@ class DebateUI:
             return
         
         # 禁用所有按钮
-        self.init_config_button.config(state=tk.DISABLED)
-        self.start_button.config(state=tk.DISABLED)
-        self.restart_button.config(state=tk.DISABLED)
+        self.set_button_state(self.init_config_button, False)
+        self.set_button_state(self.start_button, False)
+        self.set_button_state(self.restart_button, False)
         
         # 清空所有聊天框，但保留辩论历史记录中的配置信息
         self.clear_all_texts()
@@ -1126,9 +1177,9 @@ class DebateUI:
     def restart_debate(self):
         """重新开始辩论"""
         # 恢复到初始状态
-        self.init_config_button.config(state=tk.NORMAL)
-        self.start_button.config(state=tk.DISABLED)
-        self.restart_button.config(state=tk.DISABLED)
+        self.set_button_state(self.init_config_button, True)
+        self.set_button_state(self.start_button, False)
+        self.set_button_state(self.restart_button, False)
         
         # 清空所有内容
         self.clear_all_texts()
@@ -1194,7 +1245,7 @@ class DebateUI:
     def on_debate_end(self):
         """辩论结束时的处理"""
         # 启用重新开始按钮
-        self.restart_button.config(state=tk.NORMAL)
+        self.set_button_state(self.restart_button, True)
         # 添加结束提示
         end_info = "\n" + "="*50 + "\n"
         end_info += "        辩论已结束        \n"
